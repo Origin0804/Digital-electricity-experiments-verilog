@@ -62,7 +62,7 @@ module clocks_ctrl(
         end
         else begin
             // Handle mode switching - set default countdown value when entering countdown mode
-            if (countdown_mode_edge && countdown_mode) begin
+            if (countdown_mode_edge) begin
                 // Entering countdown mode - set to 1 minute default
                 centisec <= 8'd0;
                 sec <= 8'd0;
@@ -127,9 +127,8 @@ module clocks_ctrl(
                             end
                         end
                     end
-                    else begin
-                        state <= STOPPED;
-                    end
+                    // Note: The at_zero==true case is handled inside the countdown logic
+                    // which sets state to STOPPED when hour hits 0 and all others are 0
                 end
                 else begin
                     // Stopwatch mode (count up)
