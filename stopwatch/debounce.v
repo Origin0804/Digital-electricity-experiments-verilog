@@ -1,12 +1,15 @@
 // Debounce Module
 // Debounces button inputs with ~10ms delay
 // Input: Raw button signal
-// Output: Clean debounced signal (active high pulse for one clock)
+// Output: 
+//   btn_out - Clean debounced signal (active high pulse for one clock on press)
+//   level_out - Stable debounced level (for slide switches)
 module debounce(
     input clk,          // System clock (100MHz)
     input rst,          // Reset signal
     input btn_in,       // Raw button input
-    output reg btn_out  // Debounced output (one clock pulse on press)
+    output reg btn_out, // Debounced output (one clock pulse on press)
+    output reg level_out // Debounced stable level output (for slide switches)
 );
 
     // Debounce counter - approx 10ms at 100MHz = 1,000,000 cycles
@@ -20,6 +23,7 @@ module debounce(
             btn_prev <= 1'b0;
             btn_stable <= 1'b0;
             btn_out <= 1'b0;
+            level_out <= 1'b0;
         end
         else begin
             btn_out <= 1'b0;  // Default: no pulse
@@ -36,6 +40,7 @@ module debounce(
                     btn_out <= 1'b1;
                 end
                 btn_stable <= btn_in;
+                level_out <= btn_in;  // Update stable level output
             end
             else begin
                 cnt <= cnt + 1'b1;

@@ -22,7 +22,7 @@ module top(
     wire stop_debounced;
     wire set_min_debounced;
     wire set_hour_debounced;
-    wire countdown_debounced;
+    wire countdown_level;   // Debounced stable level for slide switch
     
     wire [7:0] xx, ss, mm, hh;
 
@@ -34,47 +34,54 @@ module top(
         .clk_1khz(clk_1khz)
     );
 
-    // Debounce instances for all inputs
+    // Debounce instances for all button inputs
     debounce u_debounce_reset (
         .clk(clk),
         .rst(1'b0),
         .btn_in(s0_reset),
-        .btn_out(rst_debounced)
+        .btn_out(rst_debounced),
+        .level_out()         // Not used for buttons
     );
 
     debounce u_debounce_start (
         .clk(clk),
         .rst(1'b0),
         .btn_in(s1_start),
-        .btn_out(start_debounced)
+        .btn_out(start_debounced),
+        .level_out()         // Not used for buttons
     );
 
     debounce u_debounce_stop (
         .clk(clk),
         .rst(1'b0),
         .btn_in(s2_stop),
-        .btn_out(stop_debounced)
+        .btn_out(stop_debounced),
+        .level_out()         // Not used for buttons
     );
 
     debounce u_debounce_set_min (
         .clk(clk),
         .rst(1'b0),
         .btn_in(s3_set_min),
-        .btn_out(set_min_debounced)
+        .btn_out(set_min_debounced),
+        .level_out()         // Not used for buttons
     );
 
     debounce u_debounce_set_hour (
         .clk(clk),
         .rst(1'b0),
         .btn_in(s4_set_hour),
-        .btn_out(set_hour_debounced)
+        .btn_out(set_hour_debounced),
+        .level_out()         // Not used for buttons
     );
 
+    // Debounce for slide switch (use level output, not pulse)
     debounce u_debounce_countdown (
         .clk(clk),
         .rst(1'b0),
         .btn_in(sw7_countdown),
-        .btn_out(countdown_debounced)
+        .btn_out(),          // Not used for slide switches
+        .level_out(countdown_level)  // Use stable level for mode selection
     );
 
     // Stopwatch logic instance
@@ -84,7 +91,7 @@ module top(
         .rst(rst_debounced),
         .start(start_debounced),
         .stop(stop_debounced),
-        .countdown_mode(sw7_countdown),  // Use raw switch value (not debounced pulse)
+        .countdown_mode(countdown_level),  // Use debounced stable level from slide switch
         .set_min(set_min_debounced),
         .set_hour(set_hour_debounced),
         .xx(xx),

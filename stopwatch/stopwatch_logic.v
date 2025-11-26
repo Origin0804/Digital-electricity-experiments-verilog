@@ -35,6 +35,11 @@ module stopwatch_logic(
             else if (stop) begin
                 state <= STOPPED;
             end
+            // Auto-stop when countdown reaches zero
+            else if (countdown_mode && state == RUNNING && 
+                     xx == 8'd0 && ss == 8'd0 && mm == 8'd0 && hh == 8'd0) begin
+                state <= STOPPED;
+            end
         end
     end
 
@@ -97,7 +102,8 @@ module stopwatch_logic(
                                     hh <= hh - 1'b1;
                                 end
                                 else begin
-                                    // Countdown complete - wrap around to 00:00:00:00
+                                    // Countdown complete - stay at zero
+                                    // State machine will auto-stop
                                     hh <= 8'd0;
                                     mm <= 8'd0;
                                     ss <= 8'd0;
