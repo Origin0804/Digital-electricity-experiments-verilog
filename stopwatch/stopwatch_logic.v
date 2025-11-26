@@ -104,11 +104,8 @@ module stopwatch_logic(
             // Running state - counting
             else if (state == RUNNING) begin
                 if (countdown_mode) begin
-                    // Countdown logic
-                    if (hours == 0 && minutes == 0 && seconds == 0 && centisec == 0) begin
-                        // Already at zero, stop
-                    end
-                    else if (centisec > 0) begin
+                    // Countdown logic (state machine handles zero detection and state transition)
+                    if (centisec > 0) begin
                         centisec <= centisec - 1'b1;
                     end
                     else begin

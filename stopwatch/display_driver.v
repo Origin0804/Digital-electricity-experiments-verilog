@@ -22,23 +22,38 @@ module display_driver(
     reg [3:0] digit_high;   // Upper digit (tens place)
     
     // Segment patterns (active high segments)
-    // Bit order: [7]=dp, [6]=a, [5]=b, [4]=c, [3]=d, [2]=e, [1]=f, [0]=g
-    // Standard 7-seg: a=top, b=upper-right, c=lower-right, d=bottom, e=lower-left, f=upper-left, g=middle
+    // 7-Segment Display Bit Mapping (active-high encoding):
+    //   Bit 7: dp (decimal point)
+    //   Bit 6: a  (top horizontal segment)
+    //   Bit 5: b  (upper-right vertical segment)
+    //   Bit 4: c  (lower-right vertical segment)
+    //   Bit 3: d  (bottom horizontal segment)
+    //   Bit 2: e  (lower-left vertical segment)
+    //   Bit 1: f  (upper-left vertical segment)
+    //   Bit 0: g  (middle horizontal segment)
+    //
+    // Visual representation of segments:
+    //      aaa
+    //     f   b
+    //      ggg
+    //     e   c
+    //      ddd  .dp
+    //
     function [7:0] seg_decode;
         input [3:0] digit;
         begin
             case (digit)
-                4'd0: seg_decode = 8'b01111110;  // abcdef
-                4'd1: seg_decode = 8'b00110000;  // bc
-                4'd2: seg_decode = 8'b01101101;  // abdeg
-                4'd3: seg_decode = 8'b01111001;  // abcdg
-                4'd4: seg_decode = 8'b00110011;  // bcfg
-                4'd5: seg_decode = 8'b01011011;  // acdfg
-                4'd6: seg_decode = 8'b01011111;  // acdefg
-                4'd7: seg_decode = 8'b01110000;  // abc
-                4'd8: seg_decode = 8'b01111111;  // abcdefg
-                4'd9: seg_decode = 8'b01111011;  // abcdfg
-                default: seg_decode = 8'b00000001; // g only (dash)
+                4'd0: seg_decode = 8'b01111110;  // abcdef  (0)
+                4'd1: seg_decode = 8'b00110000;  // bc      (1)
+                4'd2: seg_decode = 8'b01101101;  // abdeg   (2)
+                4'd3: seg_decode = 8'b01111001;  // abcdg   (3)
+                4'd4: seg_decode = 8'b00110011;  // bcfg    (4)
+                4'd5: seg_decode = 8'b01011011;  // acdfg   (5)
+                4'd6: seg_decode = 8'b01011111;  // acdefg  (6)
+                4'd7: seg_decode = 8'b01110000;  // abc     (7)
+                4'd8: seg_decode = 8'b01111111;  // abcdefg (8)
+                4'd9: seg_decode = 8'b01111011;  // abcdfg  (9)
+                default: seg_decode = 8'b00000001; // g only (dash for invalid input)
             endcase
         end
     endfunction

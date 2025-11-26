@@ -28,10 +28,13 @@ module top(
     // Global reset (active high from S0 button)
     wire rst;
     
+    // Raw reset for clock and debounce modules (uses raw S0 input for startup reliability)
+    wire raw_rst = s0;
+    
     // Clock divider instance
     clk_div u_clk_div(
         .clk(clk),
-        .rst(1'b0),         // Clock divider uses fixed reset
+        .rst(raw_rst),      // Use raw reset for startup reliability
         .clk_100Hz(clk_100Hz),
         .clk_scan(clk_scan),
         .clk_db(clk_db)
@@ -40,7 +43,7 @@ module top(
     // Debounce instance
     debounce u_debounce(
         .clk_db(clk_db),
-        .rst(1'b0),         // Debounce uses fixed reset
+        .rst(raw_rst),      // Use raw reset for startup reliability
         .s0_in(s0),
         .s1_in(s1),
         .s2_in(s2),
