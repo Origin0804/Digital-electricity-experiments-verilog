@@ -10,7 +10,6 @@ module stopwatch_logic(
     input min_inc,          // Minute increment button (pulse)
     input hour_inc,         // Hour increment button (pulse)
     input countdown_mode,   // Countdown mode enable (level, debounced)
-    input countdown_mode_raw, // Raw countdown mode for reset initialization
     output reg [7:0] hours,     // Hours (0-99)
     output reg [7:0] minutes,   // Minutes (0-59)
     output reg [7:0] seconds,   // Seconds (0-59)
@@ -64,21 +63,16 @@ module stopwatch_logic(
     always @(posedge clk_100Hz or posedge rst) begin
         if (rst) begin
             hours <= 8'd0;
-            // When in countdown mode at reset, initialize to 1 minute
-            // Use raw signal since debounced signal is cleared during reset
-            if (countdown_mode_raw)
-                minutes <= 8'd1;
-            else
-                minutes <= 8'd0;
+            minutes <= 8'd0;
             seconds <= 8'd0;
             centisec <= 8'd0;
-            // Use raw signal for prev state since debounced signal is cleared during reset
-            countdown_mode_prev <= countdown_mode_raw;
+            countdown_mode_prev <= 1'b0;
         end
         else begin
+            // Store previous countdown mode for edge detection
             countdown_mode_prev <= countdown_mode;
             
-            // Load default countdown value when entering countdown mode
+            // Load default countdown value when entering countdown mode (rising edge)
             if (countdown_mode && !countdown_mode_prev) begin
                 // Load default 1 minute when countdown mode is enabled
                 hours <= 8'd0;
@@ -86,7 +80,7 @@ module stopwatch_logic(
                 seconds <= 8'd0;
                 centisec <= 8'd0;
             end
-            // Clear when leaving countdown mode
+            // Clear when leaving countdown mode (falling edge)
             else if (!countdown_mode && countdown_mode_prev) begin
                 hours <= 8'd0;
                 minutes <= 8'd0;

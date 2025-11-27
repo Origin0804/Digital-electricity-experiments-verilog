@@ -72,7 +72,6 @@ module top(
         .min_inc(s3_db),
         .hour_inc(s4_db),
         .countdown_mode(sw7_db),
-        .countdown_mode_raw(sw7),  // Raw signal for reset initialization
         .hours(hours),
         .minutes(minutes),
         .seconds(seconds),
