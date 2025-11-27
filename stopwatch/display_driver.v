@@ -1,8 +1,9 @@
 // Display Driver Module for Digital Stopwatch
 // Multiplexes 8 digits onto EGO1 dual-bank 7-segment display
 // Display format: HH-MM-SS-XX
-// Left group (AN7-AN4): HH-MM (hours tens, hours ones, minutes tens, minutes ones)
-// Right group (AN3-AN0): SS-XX (seconds tens, seconds ones, centisec tens, centisec ones)
+// Physical layout on EGO1 (left to right): AN0-AN1-AN2-AN3 | AN4-AN5-AN6-AN7
+// Left group (AN0-AN3/duan): HH-MM (hours tens, hours ones, minutes tens, minutes ones)
+// Right group (AN4-AN7/duan1): SS-XX (seconds tens, seconds ones, centisec tens, centisec ones)
 
 module display_driver(
     input clk_scan,         // 1kHz scan clock
@@ -71,20 +72,21 @@ module display_driver(
     end
 
     // Anode selection and digit value extraction
-    // Display layout: HH-MM-SS-XX
-    //   AN7: H (tens), AN6: H (ones), AN5: M (tens), AN4: M (ones)
-    //   AN3: S (tens), AN2: S (ones), AN1: X (tens), AN0: X (ones)
+    // Physical display layout on EGO1 (left to right): AN0-AN1-AN2-AN3 | AN4-AN5-AN6-AN7
+    // Desired display: HH-MM-SS-XX (hours on left, centisec on right)
+    //   AN0: H (tens), AN1: H (ones), AN2: M (tens), AN3: M (ones)
+    //   AN4: S (tens), AN5: S (ones), AN6: X (tens), AN7: X (ones)
     //
-    // Scan pairing (4 cycles, each drives one left + one right digit):
-    //   Scan 0: AN4 (M ones) & AN0 (X ones) - duan1=M_ones, duan=X_ones
-    //   Scan 1: AN5 (M tens) & AN1 (X tens) - duan1=M_tens, duan=X_tens
-    //   Scan 2: AN6 (H ones) & AN2 (S ones) - duan1=H_ones, duan=S_ones
-    //   Scan 3: AN7 (H tens) & AN3 (S tens) - duan1=H_tens, duan=S_tens
+    // Scan pairing (4 cycles, each drives one left group + one right group digit):
+    //   Scan 0: AN0 (H tens) & AN4 (S tens) - duan=H_tens, duan1=S_tens
+    //   Scan 1: AN1 (H ones) & AN5 (S ones) - duan=H_ones, duan1=S_ones
+    //   Scan 2: AN2 (M tens) & AN6 (X tens) - duan=M_tens, duan1=X_tens
+    //   Scan 3: AN3 (M ones) & AN7 (X ones) - duan=M_ones, duan1=X_ones
     //
     // Decimal point placement for separator display (HH.MM.SS.XX):
-    //   - Show dp on AN6 (H ones) to separate HH-MM
-    //   - Show dp on AN4 (M ones) to separate MM-SS
-    //   - Show dp on AN2 (S ones) to separate SS-XX
+    //   - Show dp on AN1 (H ones) to separate HH-MM
+    //   - Show dp on AN3 (M ones) to separate MM-SS
+    //   - Show dp on AN5 (S ones) to separate SS-XX
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
             an <= 8'b00000000;
@@ -97,31 +99,31 @@ module display_driver(
             case (scan_cnt)
                 2'd0: begin
                     an <= 8'b00010001;              // AN4 + AN0 active
-                    digit_left <= minutes % 10;     // M ones (AN4)
-                    digit_right <= centisec % 10;   // X ones (AN0)
-                    show_dp_left <= 1'b1;           // dp on M ones (separator MM-SS)
+                    digit_right <= hours / 10;      // H tens (AN0)
+                    digit_left <= seconds / 10;     // S tens (AN4)
                     show_dp_right <= 1'b0;
+                    show_dp_left <= 1'b0;
                 end
                 2'd1: begin
                     an <= 8'b00100010;              // AN5 + AN1 active
-                    digit_left <= minutes / 10;     // M tens (AN5)
-                    digit_right <= centisec / 10;   // X tens (AN1)
-                    show_dp_left <= 1'b0;
-                    show_dp_right <= 1'b0;
+                    digit_right <= hours % 10;      // H ones (AN1)
+                    digit_left <= seconds % 10;     // S ones (AN5)
+                    show_dp_right <= 1'b1;          // dp on H ones (separator HH-MM)
+                    show_dp_left <= 1'b1;           // dp on S ones (separator SS-XX)
                 end
                 2'd2: begin
                     an <= 8'b01000100;              // AN6 + AN2 active
-                    digit_left <= hours % 10;       // H ones (AN6)
-                    digit_right <= seconds % 10;    // S ones (AN2)
-                    show_dp_left <= 1'b1;           // dp on H ones (separator HH-MM)
-                    show_dp_right <= 1'b1;          // dp on S ones (separator SS-XX)
+                    digit_right <= minutes / 10;    // M tens (AN2)
+                    digit_left <= centisec / 10;    // X tens (AN6)
+                    show_dp_right <= 1'b0;
+                    show_dp_left <= 1'b0;
                 end
                 2'd3: begin
                     an <= 8'b10001000;              // AN7 + AN3 active
-                    digit_left <= hours / 10;       // H tens (AN7)
-                    digit_right <= seconds / 10;    // S tens (AN3)
+                    digit_right <= minutes % 10;    // M ones (AN3)
+                    digit_left <= centisec % 10;    // X ones (AN7)
+                    show_dp_right <= 1'b1;          // dp on M ones (separator MM-SS)
                     show_dp_left <= 1'b0;
-                    show_dp_right <= 1'b0;
                 end
             endcase
         end

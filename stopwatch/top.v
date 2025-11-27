@@ -58,8 +58,10 @@ module top(
         .sw7_out(sw7_db)
     );
     
-    // Reset signal from debounced S0
-    assign rst = s0_db;
+    // Reset signal - use raw S0 directly to avoid debounce module reset blocking
+    // Note: When S0 is pressed, it also resets the debounce module, which clears s0_db.
+    // Therefore, we must use the raw S0 signal for resetting the stopwatch logic.
+    assign rst = s0;
     
     // Stopwatch logic instance
     stopwatch_logic u_stopwatch(
