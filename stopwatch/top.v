@@ -3,15 +3,15 @@
 
 module top(
     input clk,              // 100MHz clock (P17)
-    input s0,               // Reset button (R15)
-    input s1,               // Start button (U4)
-    input s2,               // Stop button (V1)
-    input s3,               // Minute Increment button (R11)
-    input s4,               // Hour Increment button (R17)
+    input s0,               // Reset button (R11)
+    input s1,               // Start button (R17)
+    input s2,               // Stop button (R15)
+    input s3,               // Minute Increment button (V1)
+    input s4,               // Hour Increment button (U4)
     input sw7,              // Countdown Mode Enable switch (P5)
-    output [3:0] wei,       // Digit select
-    output [7:0] duan,      // Segment data bank 1
-    output [7:0] duan1      // Segment data bank 2
+    output [7:0] an,        // Anode select for AN0-AN7
+    output [7:0] duan,      // Segment data for right bank (AN0-AN3)
+    output [7:0] duan1      // Segment data for left bank (AN4-AN7)
 );
 
     // Internal wires
@@ -84,7 +84,7 @@ module top(
         .minutes(minutes),
         .seconds(seconds),
         .centisec(centisec),
-        .wei(wei),
+        .an(an),
         .duan(duan),
         .duan1(duan1)
     );
