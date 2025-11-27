@@ -1,6 +1,8 @@
 // Display Driver Module for Digital Stopwatch
 // Multiplexes 8 digits onto EGO1 dual-bank 7-segment display
-// Display format: hh-mm-ss-xx (with dashes as separators)
+// Display format: HH-MM-SS-XX
+// Left group (AN7-AN4): HH-MM (hours tens, hours ones, minutes tens, minutes ones)
+// Right group (AN3-AN0): SS-XX (seconds tens, seconds ones, centisec tens, centisec ones)
 
 module display_driver(
     input clk_scan,         // 1kHz scan clock
@@ -9,17 +11,19 @@ module display_driver(
     input [7:0] minutes,    // Minutes value (0-59)
     input [7:0] seconds,    // Seconds value (0-59)
     input [7:0] centisec,   // Centiseconds value (0-99)
-    output reg [3:0] wei,   // Digit select (active high)
-    output reg [7:0] duan,  // Segment data for first bank
-    output reg [7:0] duan1  // Segment data for second bank
+    output reg [7:0] an,    // Anode select for AN0-AN7 (active high)
+    output reg [7:0] duan,  // Segment data for right bank (AN0-AN3)
+    output reg [7:0] duan1  // Segment data for left bank (AN4-AN7)
 );
 
-    // Scan counter (0-3 for 4 digit positions, each position drives 2 digits)
-    reg [2:0] scan_cnt;
+    // Scan counter (0-3 for 4 scan cycles, each cycle drives 2 digits simultaneously)
+    reg [1:0] scan_cnt;
     
-    // Current digit values
-    reg [3:0] digit_low;    // Lower digit (ones place)
-    reg [3:0] digit_high;   // Upper digit (tens place)
+    // Current digit values for right and left banks
+    reg [3:0] digit_right;  // Digit value for right bank (duan)
+    reg [3:0] digit_left;   // Digit value for left bank (duan1)
+    reg show_dp_right;      // Show decimal point on right digit
+    reg show_dp_left;       // Show decimal point on left digit
     
     // Segment patterns (active high segments)
     // 7-Segment Display Bit Mapping (active-high encoding):
@@ -61,64 +65,72 @@ module display_driver(
     // Scan counter
     always @(posedge clk_scan or posedge rst) begin
         if (rst)
-            scan_cnt <= 3'd0;
-        else if (scan_cnt >= 3'd3)
-            scan_cnt <= 3'd0;
+            scan_cnt <= 2'd0;
         else
             scan_cnt <= scan_cnt + 1'b1;
     end
 
-    // Digit selection and value extraction
-    // Display format: HH-MM-SS-XX
-    // Position 0 (wei=0001): centisec ones (X) and centisec tens (X)
-    // Position 1 (wei=0010): seconds ones (S) and seconds tens (S)
-    // Position 2 (wei=0100): minutes ones (M) and minutes tens (M)
-    // Position 3 (wei=1000): hours ones (H) and hours tens (H)
+    // Anode selection and digit value extraction
+    // Display layout: HH-MM-SS-XX
+    //   AN7: H (tens), AN6: H (ones), AN5: M (tens), AN4: M (ones)
+    //   AN3: S (tens), AN2: S (ones), AN1: X (tens), AN0: X (ones)
+    //
+    // Scan pairing (4 cycles, each drives one left + one right digit):
+    //   Scan 0: AN4 (M ones) & AN0 (X ones) - duan1=M_ones, duan=X_ones
+    //   Scan 1: AN5 (M tens) & AN1 (X tens) - duan1=M_tens, duan=X_tens
+    //   Scan 2: AN6 (H ones) & AN2 (S ones) - duan1=H_ones, duan=S_ones
+    //   Scan 3: AN7 (H tens) & AN3 (S tens) - duan1=H_tens, duan=S_tens
+    //
+    // Decimal point placement for separator display (HH.MM.SS.XX):
+    //   - Show dp on AN6 (H ones) to separate HH-MM
+    //   - Show dp on AN4 (M ones) to separate MM-SS
+    //   - Show dp on AN2 (S ones) to separate SS-XX
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
-            wei <= 4'b0000;
-            digit_low <= 4'd0;
-            digit_high <= 4'd0;
+            an <= 8'b00000000;
+            digit_right <= 4'd0;
+            digit_left <= 4'd0;
+            show_dp_right <= 1'b0;
+            show_dp_left <= 1'b0;
         end
         else begin
             case (scan_cnt)
-                3'd0: begin
-                    wei <= 4'b0001;
-                    digit_low <= centisec % 10;     // Centisec ones
-                    digit_high <= centisec / 10;    // Centisec tens
+                2'd0: begin
+                    an <= 8'b00010001;              // AN4 + AN0 active
+                    digit_left <= minutes % 10;     // M ones (AN4)
+                    digit_right <= centisec % 10;   // X ones (AN0)
+                    show_dp_left <= 1'b1;           // dp on M ones (separator MM-SS)
+                    show_dp_right <= 1'b0;
                 end
-                3'd1: begin
-                    wei <= 4'b0010;
-                    digit_low <= seconds % 10;      // Seconds ones
-                    digit_high <= seconds / 10;     // Seconds tens
+                2'd1: begin
+                    an <= 8'b00100010;              // AN5 + AN1 active
+                    digit_left <= minutes / 10;     // M tens (AN5)
+                    digit_right <= centisec / 10;   // X tens (AN1)
+                    show_dp_left <= 1'b0;
+                    show_dp_right <= 1'b0;
                 end
-                3'd2: begin
-                    wei <= 4'b0100;
-                    digit_low <= minutes % 10;      // Minutes ones
-                    digit_high <= minutes / 10;     // Minutes tens
+                2'd2: begin
+                    an <= 8'b01000100;              // AN6 + AN2 active
+                    digit_left <= hours % 10;       // H ones (AN6)
+                    digit_right <= seconds % 10;    // S ones (AN2)
+                    show_dp_left <= 1'b1;           // dp on H ones (separator HH-MM)
+                    show_dp_right <= 1'b1;          // dp on S ones (separator SS-XX)
                 end
-                3'd3: begin
-                    wei <= 4'b1000;
-                    digit_low <= hours % 10;        // Hours ones
-                    digit_high <= hours / 10;       // Hours tens
-                end
-                default: begin
-                    wei <= 4'b0000;
-                    digit_low <= 4'd0;
-                    digit_high <= 4'd0;
+                2'd3: begin
+                    an <= 8'b10001000;              // AN7 + AN3 active
+                    digit_left <= hours / 10;       // H tens (AN7)
+                    digit_right <= seconds / 10;    // S tens (AN3)
+                    show_dp_left <= 1'b0;
+                    show_dp_right <= 1'b0;
                 end
             endcase
         end
     end
 
     // Segment output generation
-    // duan drives lower digit, duan1 drives upper digit
-    // Add decimal point (dp) between pairs to show separator (hh.mm.ss.xx)
     always @(*) begin
-        // Lower digit (ones place) - no decimal point
-        duan = seg_decode(digit_low);
-        // Upper digit (tens place) - add decimal point for separator
-        duan1 = seg_decode(digit_high) | 8'b10000000;  // Set dp bit
+        duan = seg_decode(digit_right) | {show_dp_right, 7'b0000000};
+        duan1 = seg_decode(digit_left) | {show_dp_left, 7'b0000000};
     end
 
 endmodule
