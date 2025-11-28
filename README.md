@@ -133,4 +133,6 @@ EGO1 板载两组开关：一组是位于板子下方的**拨码开关 (Slide Sw
 | **BT_RX** | [cite_start]N2 [cite: 334] | FPGA 发送 |
 | **BT_TX** | [cite_start]L3 [cite: 334] | FPGA 接收 |
 
-您是否需要针对某个特定模块（如 SRAM 或 ADC/DAC）的详细 Verilog 代码示例或约束文件（XDC）格式？
+### Circumstance of experiment_6
+This experiment request us to finish 8 different peojects as file request.md
+No.2 stopwatch has been finished fundamentally. Others are gennerated by copilot, which are not ensured to be correct.
