@@ -9,7 +9,7 @@ module stopwatch_logic(
     input stop,             // Stop button (pulse)
     input min_inc,          // Minute increment button (pulse)
     input hour_inc,         // Hour increment button (pulse)
-    input countdown_mode,   // Countdown mode enable (level)
+    input countdown_mode,   // Countdown mode enable (level, debounced)
     output reg [7:0] hours,     // Hours (0-99)
     output reg [7:0] minutes,   // Minutes (0-59)
     output reg [7:0] seconds,   // Seconds (0-59)
@@ -69,9 +69,10 @@ module stopwatch_logic(
             countdown_mode_prev <= 1'b0;
         end
         else begin
+            // Store previous countdown mode for edge detection
             countdown_mode_prev <= countdown_mode;
             
-            // Load default countdown value when entering countdown mode
+            // Load default countdown value when entering countdown mode (rising edge)
             if (countdown_mode && !countdown_mode_prev) begin
                 // Load default 1 minute when countdown mode is enabled
                 hours <= 8'd0;
@@ -79,7 +80,7 @@ module stopwatch_logic(
                 seconds <= 8'd0;
                 centisec <= 8'd0;
             end
-            // Clear when leaving countdown mode
+            // Clear when leaving countdown mode (falling edge)
             else if (!countdown_mode && countdown_mode_prev) begin
                 hours <= 8'd0;
                 minutes <= 8'd0;
