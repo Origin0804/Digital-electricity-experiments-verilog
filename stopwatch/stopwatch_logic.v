@@ -13,7 +13,8 @@ module stopwatch_logic(
     output reg [7:0] hours,     // Hours (0-99)
     output reg [7:0] minutes,   // Minutes (0-59)
     output reg [7:0] seconds,   // Seconds (0-59)
-    output reg [7:0] centisec   // Centiseconds (0-99)
+    output reg [7:0] centisec,  // Centiseconds (0-99)
+    output reg alarm            // Alarm signal when countdown reaches zero
 );
 
     // State definitions
@@ -67,6 +68,7 @@ module stopwatch_logic(
             seconds <= 8'd0;
             centisec <= 8'd0;
             countdown_mode_prev <= 1'b0;
+            alarm <= 1'b0;
         end
         else begin
             // Store previous countdown mode for edge detection
@@ -160,6 +162,17 @@ module stopwatch_logic(
                         centisec <= centisec + 1'b1;
                     end
                 end
+            end
+            
+            // Alarm control: Activate when countdown reaches zero
+            // Clear alarm when starting new countdown or switching modes
+            if (countdown_mode && state == STOPPED && 
+                hours == 0 && minutes == 0 && seconds == 0 && centisec == 0) begin
+                alarm <= 1'b1;
+            end
+            else if (!countdown_mode || state == RUNNING || 
+                     (countdown_mode && (min_inc || hour_inc))) begin
+                alarm <= 1'b0;
             end
         end
     end
