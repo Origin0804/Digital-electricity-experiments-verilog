@@ -12,6 +12,8 @@ module display_driver(
     input [7:0] minutes,    // Minutes value (0-59)
     input [7:0] seconds,    // Seconds value (0-59)
     input [7:0] centisec,   // Centiseconds value (0-99)
+    input blink_en,         // Enable blinking (blank when blink_phase=0)
+    input blink_phase,      // Blink phase: 1=show, 0=blank
     output reg [7:0] an,    // Anode select for AN0-AN7 (active high)
     output reg [7:0] duan,  // Segment data for right bank (AN0-AN3)
     output reg [7:0] duan1  // Segment data for left bank (AN4-AN7)
@@ -19,6 +21,7 @@ module display_driver(
 
     // Scan counter (0-3 for 4 scan cycles, each cycle drives 2 digits simultaneously)
     reg [1:0] scan_cnt;
+    reg [7:0] an_scan;       // Raw anode drive before blink masking
     
     // Current digit values for right and left banks
     reg [3:0] digit_right;  // Digit value for right bank (duan)
@@ -89,7 +92,7 @@ module display_driver(
     //   - Show dp on AN5 (S ones) to separate SS-XX
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
-            an <= 8'b00000000;
+            an_scan <= 8'b00000000;
             digit_right <= 4'd0;
             digit_left <= 4'd0;
             show_dp_right <= 1'b0;
@@ -98,28 +101,28 @@ module display_driver(
         else begin
             case (scan_cnt)
                 2'd0: begin
-                    an <= 8'b00010001;              // AN4 + AN0 active
+                    an_scan <= 8'b00010001;         // AN4 + AN0 active
                     digit_right <= hours / 10;      // H tens (AN0)
                     digit_left <= seconds / 10;     // S tens (AN4)
                     show_dp_right <= 1'b0;
                     show_dp_left <= 1'b0;
                 end
                 2'd1: begin
-                    an <= 8'b00100010;              // AN5 + AN1 active
+                    an_scan <= 8'b00100010;         // AN5 + AN1 active
                     digit_right <= hours % 10;      // H ones (AN1)
                     digit_left <= seconds % 10;     // S ones (AN5)
                     show_dp_right <= 1'b1;          // dp on H ones (separator HH-MM)
                     show_dp_left <= 1'b1;           // dp on S ones (separator SS-XX)
                 end
                 2'd2: begin
-                    an <= 8'b01000100;              // AN6 + AN2 active
+                    an_scan <= 8'b01000100;         // AN6 + AN2 active
                     digit_right <= minutes / 10;    // M tens (AN2)
                     digit_left <= centisec / 10;    // X tens (AN6)
                     show_dp_right <= 1'b0;
                     show_dp_left <= 1'b0;
                 end
                 2'd3: begin
-                    an <= 8'b10001000;              // AN7 + AN3 active
+                    an_scan <= 8'b10001000;         // AN7 + AN3 active
                     digit_right <= minutes % 10;    // M ones (AN3)
                     digit_left <= centisec % 10;    // X ones (AN7)
                     show_dp_right <= 1'b1;          // dp on M ones (separator MM-SS)
@@ -131,8 +134,16 @@ module display_driver(
 
     // Segment output generation
     always @(*) begin
-        duan = seg_decode(digit_right) | {show_dp_right, 7'b0000000};
-        duan1 = seg_decode(digit_left) | {show_dp_left, 7'b0000000};
+        if (blink_en && !blink_phase) begin
+            // Blank display during off phase
+            duan = 8'b00000000;
+            duan1 = 8'b00000000;
+            an = 8'b00000000;
+        end else begin
+            duan = seg_decode(digit_right) | {show_dp_right, 7'b0000000};
+            duan1 = seg_decode(digit_left) | {show_dp_left, 7'b0000000};
+            an = an_scan;
+        end
     end
 
 endmodule

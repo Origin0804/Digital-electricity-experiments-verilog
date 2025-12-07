@@ -13,7 +13,8 @@ module stopwatch_logic(
     output reg [7:0] hours,     // Hours (0-99)
     output reg [7:0] minutes,   // Minutes (0-59)
     output reg [7:0] seconds,   // Seconds (0-59)
-    output reg [7:0] centisec   // Centiseconds (0-99)
+    output reg [7:0] centisec,  // Centiseconds (0-99)
+    output stopped              // High when state machine is in STOPPED
 );
 
     // State definitions
@@ -58,6 +59,9 @@ module stopwatch_logic(
         else
             state <= next_state;
     end
+
+    // Expose STOPPED state for blink/indication
+    assign stopped = (state == STOPPED);
     
     // Counter logic
     always @(posedge clk_100Hz or posedge rst) begin

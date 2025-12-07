@@ -29,6 +29,10 @@ set_property PACKAGE_PIN U4 [get_ports s4]
 set_property IOSTANDARD LVCMOS33 [get_ports sw7]
 set_property PACKAGE_PIN P5 [get_ports sw7]
 
+# Alarm LED (use onboard LED at K3)
+set_property IOSTANDARD LVCMOS33 [get_ports led_alarm]
+set_property PACKAGE_PIN K3 [get_ports led_alarm]
+
 # 7-Segment Display - Anode Select (an[7:0])
 # Right group: AN0-AN3, Left group: AN4-AN7
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports {an[0]}]
