@@ -11,11 +11,13 @@ module top(
     input sw7,              // Countdown Mode Enable switch (P5)
     output [7:0] an,        // Anode select for AN0-AN7
     output [7:0] duan,      // Segment data for right bank (AN0-AN3)
-    output [7:0] duan1      // Segment data for left bank (AN4-AN7)
+    output [7:0] duan1,     // Segment data for left bank (AN4-AN7)
+    output [7:0] led        // LED outputs for alarm
 );
 
     // Internal wires
     wire clk_100Hz;         // 100Hz clock for timing
+    wire clk_2Hz;           // 2Hz clock for LED flashing
     wire clk_scan;          // 1kHz clock for display scanning
     wire clk_db;            // Clock for debouncing
     
@@ -24,6 +26,9 @@ module top(
     
     // Time values
     wire [7:0] hours, minutes, seconds, centisec;
+    
+    // Alarm signal
+    wire alarm;
     
     // Global reset (active high from S0 button)
     wire rst;
@@ -36,6 +41,7 @@ module top(
         .clk(clk),
         .rst(raw_rst),      // Use raw reset for startup reliability
         .clk_100Hz(clk_100Hz),
+        .clk_2Hz(clk_2Hz),
         .clk_scan(clk_scan),
         .clk_db(clk_db)
     );
@@ -75,7 +81,8 @@ module top(
         .hours(hours),
         .minutes(minutes),
         .seconds(seconds),
-        .centisec(centisec)
+        .centisec(centisec),
+        .alarm(alarm)
     );
     
     // Display driver instance
@@ -90,5 +97,8 @@ module top(
         .duan(duan),
         .duan1(duan1)
     );
+    
+    // LED output for countdown alarm (all LEDs flash when alarm is active)
+    assign led = (alarm && clk_2Hz) ? 8'hFF : 8'h00;
 
 endmodule
