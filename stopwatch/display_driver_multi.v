@@ -33,10 +33,10 @@ module display_driver_multi(
     reg show_dp_right;      // Show decimal point on right digit
     reg show_dp_left;       // Show decimal point on left digit
     
-    // Derived values
-    wire [7:0] centisec = millisec / 10;  // Convert milliseconds to centiseconds
-    wire [7:0] ms_high = (millisec / 100) % 10;  // Hundreds digit of milliseconds
-    wire [7:0] ms_low = (millisec / 10) % 10;    // Tens digit of milliseconds
+    // Derived values - computed in combinational logic
+    reg [7:0] centisec;     // Centiseconds from milliseconds
+    reg [7:0] ms_high;      // Hundreds digit of milliseconds
+    reg [7:0] ms_low;       // Tens digit of milliseconds
     
     // Segment patterns (active high segments)
     // 7-Segment Display Bit Mapping (active-high encoding):
@@ -89,6 +89,13 @@ module display_driver_multi(
             scan_cnt <= 2'd0;
         else
             scan_cnt <= scan_cnt + 1'b1;
+    end
+    
+    // Compute derived values from milliseconds
+    always @(*) begin
+        centisec = millisec / 10;           // Convert milliseconds to centiseconds
+        ms_high = (millisec / 100) % 10;    // Hundreds digit of milliseconds
+        ms_low = (millisec / 10) % 10;      // Tens digit of milliseconds
     end
 
     // Anode selection and digit value extraction
@@ -201,8 +208,8 @@ module display_driver_multi(
             if (lap_view && scan_cnt == 2'd0) begin
                 // Show 'L' for lap view on AN0
                 duan = seg_L(1'b0) | {show_dp_right, 7'b0000000};
-            end else if (lap_view && scan_cnt == 2'd1 && lap_num < 10) begin
-                // Show lap number on AN1
+            end else if (lap_view && scan_cnt == 2'd1) begin
+                // Show lap number on AN1 (lap_num is guaranteed to be 0-9 from controlling logic)
                 duan = seg_decode(lap_num) | {show_dp_right, 7'b0000000};
             end else begin
                 duan = seg_decode(digit_right) | {show_dp_right, 7'b0000000};

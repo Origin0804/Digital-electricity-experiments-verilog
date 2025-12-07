@@ -52,7 +52,7 @@ module stopwatch_multi_logic(
     reg [7:0] lap2_seconds [0:9];
     reg [9:0] lap2_millisec [0:9];
     
-    // Previous countdown mode state for edge detection
+    // Previous countdown mode state for edge detection (shared across timers)
     reg countdown_mode_prev;
     
     // Current timer selection
@@ -99,6 +99,14 @@ module stopwatch_multi_logic(
     // Integer for loop initialization
     integer i;
     
+    // Countdown mode edge detection (shared, updated every clock cycle)
+    always @(posedge clk_1kHz or posedge rst) begin
+        if (rst)
+            countdown_mode_prev <= 1'b0;
+        else
+            countdown_mode_prev <= countdown_mode;
+    end
+    
     // Timer 1 control and counting
     always @(posedge clk_1kHz or posedge rst) begin
         if (rst) begin
@@ -108,7 +116,6 @@ module stopwatch_multi_logic(
             seconds1 <= 8'd0;
             millisec1 <= 10'd0;
             lap_count1 <= 4'd0;
-            countdown_mode_prev <= 1'b0;
             
             // Clear all lap records for timer 1
             for (i = 0; i < 10; i = i + 1) begin
@@ -119,8 +126,6 @@ module stopwatch_multi_logic(
             end
         end
         else if (is_timer1) begin
-            // Store previous countdown mode for edge detection
-            countdown_mode_prev <= countdown_mode;
             
             // State machine logic
             case (state1)
@@ -244,8 +249,23 @@ module stopwatch_multi_logic(
                     if (start) begin
                         state1 <= RUNNING;
                     end
-                    // Record lap time even when stopped
-                    else if (lap && lap_count1 < 4'd10) begin
+                    // Time adjustment in countdown mode when stopped
+                    else if (countdown_mode && state1 == STOPPED) begin
+                        if (min_inc) begin
+                            if (minutes1 >= 8'd59)
+                                minutes1 <= 8'd0;
+                            else
+                                minutes1 <= minutes1 + 1'b1;
+                        end
+                        if (hour_inc) begin
+                            if (hours1 >= 8'd99)
+                                hours1 <= 8'd0;
+                            else
+                                hours1 <= hours1 + 1'b1;
+                        end
+                    end
+                    // Record lap time when stopped (stopwatch mode)
+                    else if (!countdown_mode && lap && lap_count1 < 4'd10) begin
                         lap1_hours[lap_count1] <= hours1;
                         lap1_minutes[lap_count1] <= minutes1;
                         lap1_seconds[lap_count1] <= seconds1;
@@ -400,8 +420,23 @@ module stopwatch_multi_logic(
                     if (start) begin
                         state2 <= RUNNING;
                     end
-                    // Record lap time even when stopped
-                    else if (lap && lap_count2 < 4'd10) begin
+                    // Time adjustment in countdown mode when stopped
+                    else if (countdown_mode && state2 == STOPPED) begin
+                        if (min_inc) begin
+                            if (minutes2 >= 8'd59)
+                                minutes2 <= 8'd0;
+                            else
+                                minutes2 <= minutes2 + 1'b1;
+                        end
+                        if (hour_inc) begin
+                            if (hours2 >= 8'd99)
+                                hours2 <= 8'd0;
+                            else
+                                hours2 <= hours2 + 1'b1;
+                        end
+                    end
+                    // Record lap time when stopped (stopwatch mode)
+                    else if (!countdown_mode && lap && lap_count2 < 4'd10) begin
                         lap2_hours[lap_count2] <= hours2;
                         lap2_minutes[lap_count2] <= minutes2;
                         lap2_seconds[lap_count2] <= seconds2;
