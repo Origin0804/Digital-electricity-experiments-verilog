@@ -31,12 +31,14 @@ module top(
     wire s2_short, s2_long;
     
     // 计算器逻辑输出 Calculator logic outputs
-    wire [63:0] operand1, operand2, result;
+    wire [3:0] digits1 [6:0];  // 第一个数的各位数字
+    wire [3:0] digits2 [6:0];  // 第二个数的各位数字
+    wire [3:0] result_digits [6:0];  // 结果的各位数字
     wire [1:0] operation;
     wire [2:0] state;
     wire [2:0] digit_pos;
     wire [2:0] decimal_pos1, decimal_pos2;
-    wire is_negative1, is_negative2;
+    wire is_negative1, is_negative2, is_result_negative;
     wire blink_state;
     
     // 复位信号 (未使用S0作为复位) Reset signal (not using S0 as reset)
@@ -94,9 +96,9 @@ module top(
         .s2_long(s2_long),
         .sw_op(sw_op),
         .sw_digit(sw_digit),
-        .operand1(operand1),
-        .operand2(operand2),
-        .result(result),
+        .digits1(digits1),
+        .digits2(digits2),
+        .result_digits(result_digits),
         .operation(operation),
         .state(state),
         .digit_pos(digit_pos),
@@ -104,6 +106,7 @@ module top(
         .decimal_pos2(decimal_pos2),
         .is_negative1(is_negative1),
         .is_negative2(is_negative2),
+        .is_result_negative(is_result_negative),
         .blink_state(blink_state)
     );
     
@@ -112,15 +115,16 @@ module top(
         .clk_scan(clk_scan),
         .rst(rst),
         .state(state),
-        .operand1(operand1),
-        .operand2(operand2),
-        .result(result),
+        .digits1(digits1),
+        .digits2(digits2),
+        .result_digits(result_digits),
         .operation(operation),
         .digit_pos(digit_pos),
         .decimal_pos1(decimal_pos1),
         .decimal_pos2(decimal_pos2),
         .is_negative1(is_negative1),
         .is_negative2(is_negative2),
+        .is_result_negative(is_result_negative),
         .blink_state(blink_state),
         .an(an),
         .duan(duan),

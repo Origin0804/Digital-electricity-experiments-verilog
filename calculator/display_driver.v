@@ -11,15 +11,16 @@ module display_driver(
     input clk_scan,             // 1kHz扫描时钟 Scan clock
     input rst,                  // 复位信号 Reset signal
     input [2:0] state,          // 当前状态 Current state
-    input [63:0] operand1,      // 第一个操作数 First operand
-    input [63:0] operand2,      // 第二个操作数 Second operand
-    input [63:0] result,        // 结果 Result
+    input [3:0] digits1 [6:0],  // 第一个数的各位数字 Digits of first operand
+    input [3:0] digits2 [6:0],  // 第二个数的各位数字 Digits of second operand
+    input [3:0] result_digits [6:0], // 结果的各位数字 Digits of result
     input [1:0] operation,      // 运算类型 Operation type: 0=add, 1=sub, 2=mul, 3=div
     input [2:0] digit_pos,      // 当前输入位置 Current digit position
     input [2:0] decimal_pos1,   // 第一个数小数点位置 Decimal position for operand1
     input [2:0] decimal_pos2,   // 第二个数小数点位置 Decimal position for operand2
     input is_negative1,         // 第一个数是否为负 Is operand1 negative
     input is_negative2,         // 第二个数是否为负 Is operand2 negative
+    input is_result_negative,   // 结果是否为负 Is result negative
     input blink_state,          // 闪烁状态 Blink state
     output reg [7:0] an,        // 数码管位选 Anode select
     output reg [7:0] duan,      // 右侧段选 Segment data for right bank
@@ -40,8 +41,8 @@ module display_driver(
     reg show_decimal;           // 是否显示小数点 Show decimal point
     reg show_negative;          // 是否显示负号 Show negative sign
     
-    // 数字数组 Digit array for current number
-    reg [3:0] digits [7:0];     // 8位: [0]=符号位, [1-7]=数字位
+    // 临时数字数组用于显示 Temporary digit array for display
+    reg [3:0] display_digits [7:0];  // 8位: [0]=符号位, [1-7]=数字位
     integer i;
 
     // 7段译码函数 7-segment decode function
@@ -63,10 +64,10 @@ module display_driver(
                 4'd9: base_pattern = 8'b11110110;  // 9
                 4'd10: base_pattern = 8'b00000010; // 负号 Negative sign (-)
                 4'd11: base_pattern = 8'b00000000; // 空白 Blank
-                4'd12: base_pattern = 8'b10001110; // A
+                4'd12: base_pattern = 8'b11101110; // A
                 4'd13: base_pattern = 8'b00111110; // d
                 4'd14: base_pattern = 8'b10011110; // E
-                4'd15: base_pattern = 8'b10001100; // P
+                4'd15: base_pattern = 8'b10001110; // P/F
                 default: base_pattern = 8'b00000000;
             endcase
             // 添加小数点 Add decimal point
@@ -86,13 +87,15 @@ module display_driver(
     always @(*) begin
         // 默认值 Default values
         for (i = 0; i < 8; i = i + 1)
-            digits[i] = 4'd0;
+            display_digits[i] = 4'd0;
         show_negative = 1'b0;
         
         case (state)
             STATE_INPUT1: begin
                 // 状态0: 显示第一个输入的数字 State 0: Show first input number
-                convert_number_to_digits(operand1, decimal_pos1);
+                for (i = 0; i < 7; i = i + 1)
+                    display_digits[i] = digits1[i];
+                display_digits[7] = 4'd11;  // 符号位 Sign bit
                 show_negative = is_negative1;
             end
             
@@ -101,79 +104,65 @@ module display_driver(
                 // Add=Add, Sub=Sub, Mul=Mul, Div=div
                 case (operation)
                     2'd0: begin  // Add
-                        digits[7] = 4'd11;  // 空白
-                        digits[6] = 4'd11;
-                        digits[5] = 4'd11;
-                        digits[4] = 4'd11;
-                        digits[3] = 4'd11;
-                        digits[2] = 4'd12;  // A
-                        digits[1] = 4'd13;  // d
-                        digits[0] = 4'd13;  // d -> "Add"
+                        display_digits[7] = 4'd11;  // 空白
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd11;
+                        display_digits[2] = 4'd12;  // A
+                        display_digits[1] = 4'd13;  // d
+                        display_digits[0] = 4'd13;  // d -> "Add"
                     end
                     2'd1: begin  // Sub
-                        digits[7] = 4'd11;
-                        digits[6] = 4'd11;
-                        digits[5] = 4'd11;
-                        digits[4] = 4'd11;
-                        digits[3] = 4'd11;
-                        digits[2] = 4'd5;   // S
-                        digits[1] = 4'd0;   // u (显示为0)
-                        digits[0] = 4'd11;  // b (显示为空白) -> "Sub"
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd11;
+                        display_digits[2] = 4'd5;   // S
+                        display_digits[1] = 4'd0;   // u (显示为0)
+                        display_digits[0] = 4'd11;  // b (显示为空白) -> "S0b"
                     end
                     2'd2: begin  // Mul
-                        digits[7] = 4'd11;
-                        digits[6] = 4'd11;
-                        digits[5] = 4'd11;
-                        digits[4] = 4'd11;
-                        digits[3] = 4'd11;
-                        digits[2] = 4'd11;  // M (无法完美显示)
-                        digits[1] = 4'd0;   // u
-                        digits[0] = 4'd11;  // L -> "MuL"
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd11;
+                        display_digits[2] = 4'd11;  // M (无法完美显示)
+                        display_digits[1] = 4'd0;   // u
+                        display_digits[0] = 4'd11;  // L -> "MuL"
                     end
                     2'd3: begin  // div
-                        digits[7] = 4'd11;
-                        digits[6] = 4'd11;
-                        digits[5] = 4'd11;
-                        digits[4] = 4'd11;
-                        digits[3] = 4'd11;
-                        digits[2] = 4'd13;  // d
-                        digits[1] = 4'd1;   // i (显示为1)
-                        digits[0] = 4'd0;   // v (显示为0) -> "div"
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd11;
+                        display_digits[2] = 4'd13;  // d
+                        display_digits[1] = 4'd1;   // i (显示为1)
+                        display_digits[0] = 4'd0;   // v (显示为0) -> "d10"
                     end
                 endcase
             end
             
             STATE_INPUT2: begin
                 // 状态2: 显示第二个输入的数字 State 2: Show second input number
-                convert_number_to_digits(operand2, decimal_pos2);
+                for (i = 0; i < 7; i = i + 1)
+                    display_digits[i] = digits2[i];
+                display_digits[7] = 4'd11;  // 符号位 Sign bit
                 show_negative = is_negative2;
             end
             
             STATE_RESULT: begin
                 // 状态3: 显示结果 State 3: Show result
-                convert_number_to_digits(result, 3'd0);  // 结果不显示小数点位置
-                show_negative = (result[63] == 1'b1);  // 检查符号位
+                for (i = 0; i < 7; i = i + 1)
+                    display_digits[i] = result_digits[i];
+                display_digits[7] = 4'd11;  // 符号位 Sign bit
+                show_negative = is_result_negative;
             end
         endcase
     end
-
-    // 将数字转换为显示数组 Convert number to display array
-    task convert_number_to_digits;
-        input [63:0] num;
-        input [2:0] dec_pos;
-        reg [63:0] temp;
-        integer j;
-        begin
-            temp = num / 10000;  // 去除定点数的小数部分 Remove fixed-point fraction
-            // 转换各位数字 Convert each digit
-            for (j = 0; j < 7; j = j + 1) begin
-                digits[j] = temp % 10;
-                temp = temp / 10;
-            end
-            // 符号位 Sign bit
-            digits[7] = 4'd11;  // 将在显示时处理 Will be handled in display
-        end
-    endtask
 
     // 位选和段选输出 Anode and segment output
     // 注意: 修正显示方向 Note: Corrected display direction
@@ -209,7 +198,7 @@ module display_driver(
             end
             else begin
                 // 显示数字 Display digits
-                digit_value = digits[7 - scan_cnt];  // 修正方向 Corrected direction
+                digit_value = display_digits[7 - scan_cnt];  // 修正方向 Corrected direction
                 
                 // 判断是否显示小数点 Determine if decimal point should be shown
                 if (state == STATE_INPUT1)

@@ -18,9 +18,9 @@ module calc_logic(
     input s2_long,              // S2长按: 标记小数点 Long press for decimal point
     input [3:0] sw_op,          // SW0-3: 运算选择 Operation selection (add/sub/mul/div)
     input [3:0] sw_digit,       // SW输入数字 Digit input from switches
-    output reg [63:0] operand1, // 第一个操作数 First operand (fixed-point)
-    output reg [63:0] operand2, // 第二个操作数 Second operand (fixed-point)
-    output reg [63:0] result,   // 计算结果 Calculation result
+    output reg [3:0] digits1 [6:0], // 第一个数的各位数字 Digits of first operand
+    output reg [3:0] digits2 [6:0], // 第二个数的各位数字 Digits of second operand  
+    output reg [3:0] result_digits [6:0], // 结果的各位数字 Digits of result
     output reg [1:0] operation, // 当前运算 Current operation: 0=add, 1=sub, 2=mul, 3=div
     output reg [2:0] state,     // 当前状态 Current state: 0=input1, 1=op_select, 2=input2, 3=result
     output reg [2:0] digit_pos, // 当前数字位置 Current digit position
@@ -28,6 +28,7 @@ module calc_logic(
     output reg [2:0] decimal_pos2, // 第二个数的小数点位置 Decimal position for operand2
     output reg is_negative1,    // 第一个数是否为负 Is operand1 negative
     output reg is_negative2,    // 第二个数是否为负 Is operand2 negative
+    output reg is_result_negative, // 结果是否为负 Is result negative
     output reg blink_state      // 闪烁状态 Blink state
 );
 
@@ -38,9 +39,6 @@ module calc_logic(
     localparam STATE_RESULT = 3'd3;     // 显示结果 Show result
 
     // 内部寄存器 Internal registers
-    reg [3:0] digits1 [6:0];    // 第一个数字的7位 7 digits for operand1
-    reg [3:0] digits2 [6:0];    // 第二个数字的7位 7 digits for operand2
-    reg [63:0] temp_result;     // 临时结果 Temporary result
     reg result_ready;           // 结果准备好标志 Result ready flag
     integer i;
 
@@ -64,26 +62,25 @@ module calc_logic(
             decimal_pos2 <= 3'd0;
             is_negative1 <= 1'b0;
             is_negative2 <= 1'b0;
-            operand1 <= 64'd0;
-            operand2 <= 64'd0;
-            result <= 64'd0;
+            is_result_negative <= 1'b0;
             operation <= 2'd0;
             result_ready <= 1'b0;
             for (i = 0; i < 7; i = i + 1) begin
                 digits1[i] <= 4'd0;
                 digits2[i] <= 4'd0;
+                result_digits[i] <= 4'd0;
             end
         end
         else begin
             case (state)
                 STATE_INPUT1: begin
                     // 状态0: 输入第一个数字 State 0: Input first number
-                    // 如果上一轮有结果，直接使用 If previous result exists, use it
-                    if (result_ready) begin
-                        operand1 <= result;
+                    // 如果上一轮有结果，复制到第一个数 If previous result exists, copy to first operand
+                    if (result_ready && !s2_short) begin
+                        for (i = 0; i < 7; i = i + 1)
+                            digits1[i] <= result_digits[i];
+                        is_negative1 <= is_result_negative;
                         result_ready <= 1'b0;
-                        // 将结果转换回数字显示 Convert result back to digits
-                        convert_to_digits(result, 1);
                     end
                     
                     // 左移 Left navigation
@@ -91,23 +88,21 @@ module calc_logic(
                         digit_pos <= digit_pos + 1'b1;
                     end
                     // 右移 Right navigation
-                    else if (btn_right && digit_pos > 3'd0) begin
+                    if (btn_right && digit_pos > 3'd0) begin
                         digit_pos <= digit_pos - 1'b1;
                     end
                     // 长按标记小数点 Long press for decimal point
-                    else if (s2_long) begin
+                    if (s2_long) begin
                         decimal_pos1 <= digit_pos;
                     end
                     // 短按进入下一步 Short press to next step
-                    else if (s2_short) begin
-                        operand1 <= calculate_number(1);
+                    if (s2_short) begin
                         state <= STATE_OP_SELECT;
                         digit_pos <= 3'd6;  // 重置位置 Reset position
                     end
-                    // 更新当前位数字 Update current digit
-                    else if (sw_digit <= 4'd9) begin
-                        digits1[digit_pos] <= sw_digit;
-                    end
+                    // 持续更新当前位数字 Continuously update current digit
+                    // 使用SW4-7作为BCD输入 Use SW4-7 as BCD input
+                    digits1[digit_pos] <= sw_digit;
                 end
 
                 STATE_OP_SELECT: begin
@@ -138,24 +133,21 @@ module calc_logic(
                         digit_pos <= digit_pos + 1'b1;
                     end
                     // 右移 Right navigation
-                    else if (btn_right && digit_pos > 3'd0) begin
+                    if (btn_right && digit_pos > 3'd0) begin
                         digit_pos <= digit_pos - 1'b1;
                     end
                     // 长按标记小数点 Long press for decimal point
-                    else if (s2_long) begin
+                    if (s2_long) begin
                         decimal_pos2 <= digit_pos;
                     end
                     // 短按进入计算 Short press to calculate
-                    else if (s2_short) begin
-                        operand2 <= calculate_number(2);
+                    if (s2_short) begin
                         state <= STATE_RESULT;
                         // 执行计算 Perform calculation
-                        perform_calculation();
+                        calculate_and_store_result();
                     end
-                    // 更新当前位数字 Update current digit
-                    else if (sw_digit <= 4'd9) begin
-                        digits2[digit_pos] <= sw_digit;
-                    end
+                    // 持续更新当前位数字 Continuously update current digit
+                    digits2[digit_pos] <= sw_digit;
                 end
 
                 STATE_RESULT: begin
@@ -174,58 +166,61 @@ module calc_logic(
         end
     end
 
-    // 计算数字值任务 Calculate number value task
-    function [63:0] calculate_number;
-        input integer operand_num;  // 1=operand1, 2=operand2
-        reg [63:0] temp_value;
-        reg [2:0] dec_pos;
+    // 计算并存储结果任务 Calculate and store result task
+    task calculate_and_store_result;
+        reg signed [63:0] op1, op2, res;
+        reg [63:0] temp_res;
         integer j;
         begin
-            temp_value = 64'd0;
-            dec_pos = (operand_num == 1) ? decimal_pos1 : decimal_pos2;
-            
-            // 将各位数字转换为实际数值 Convert digits to actual value
+            // 将数字数组转换为数值 Convert digit arrays to values
+            op1 = 64'd0;
+            op2 = 64'd0;
             for (j = 0; j < 7; j = j + 1) begin
-                if (operand_num == 1)
-                    temp_value = temp_value + (digits1[j] * power_of_10(j));
-                else
-                    temp_value = temp_value + (digits2[j] * power_of_10(j));
+                op1 = op1 + (digits1[j] * power_of_10(j));
+                op2 = op2 + (digits2[j] * power_of_10(j));
             end
             
-            // 调整小数点 Adjust for decimal point
-            if (dec_pos > 0) begin
-                // 保留小数点后4位精度 Keep 4 decimal places
-                temp_value = temp_value * 10000 / power_of_10(dec_pos);
-            end
-            else begin
-                // 没有小数点 No decimal point
-                temp_value = temp_value * 10000;
-            end
+            // 调整小数点 Adjust for decimal points
+            if (decimal_pos1 > 0)
+                op1 = op1 * 10000 / power_of_10(decimal_pos1);
+            else
+                op1 = op1 * 10000;
+                
+            if (decimal_pos2 > 0)
+                op2 = op2 * 10000 / power_of_10(decimal_pos2);
+            else
+                op2 = op2 * 10000;
             
-            calculate_number = temp_value;
-        end
-    endfunction
-
-    // 执行计算任务 Perform calculation task
-    task perform_calculation;
-        reg signed [63:0] op1_signed;
-        reg signed [63:0] op2_signed;
-        begin
             // 处理符号 Handle signs
-            op1_signed = is_negative1 ? -operand1 : operand1;
-            op2_signed = is_negative2 ? -operand2 : operand2;
+            op1 = is_negative1 ? -op1 : op1;
+            op2 = is_negative2 ? -op2 : op2;
             
+            // 执行运算 Perform operation
             case (operation)
-                2'd0: result <= op1_signed + op2_signed;  // 加法 Add
-                2'd1: result <= op1_signed - op2_signed;  // 减法 Subtract
-                2'd2: result <= (op1_signed * op2_signed) / 10000;  // 乘法(调整定点) Multiply
+                2'd0: res = op1 + op2;  // 加法 Add
+                2'd1: res = op1 - op2;  // 减法 Subtract
+                2'd2: res = (op1 * op2) / 10000;  // 乘法 Multiply
                 2'd3: begin  // 除法 Divide
-                    if (op2_signed != 0)
-                        result <= (op1_signed * 10000) / op2_signed;
+                    if (op2 != 0)
+                        res = (op1 * 10000) / op2;
                     else
-                        result <= 64'd0;  // 除以0返回0 Division by zero returns 0
+                        res = 64'd0;
                 end
+                default: res = 64'd0;
             endcase
+            
+            // 处理结果符号 Handle result sign
+            is_result_negative = (res < 0);
+            temp_res = is_result_negative ? -res : res;
+            
+            // 转换回定点数后的整数部分 Convert back to integer after fixed-point
+            temp_res = temp_res / 10000;
+            
+            // 存储结果到数字数组 Store result in digit array
+            for (j = 0; j < 7; j = j + 1) begin
+                result_digits[j] = temp_res % 10;
+                temp_res = temp_res / 10;
+            end
         end
     endtask
 
@@ -239,23 +234,5 @@ module calc_logic(
                 power_of_10 = power_of_10 * 10;
         end
     endfunction
-
-    // 将数字转换回位显示 Convert number back to digits
-    task convert_to_digits;
-        input [63:0] num;
-        input integer operand_num;
-        reg [63:0] temp;
-        integer j;
-        begin
-            temp = num / 10000;  // 转回整数部分 Convert back to integer
-            for (j = 0; j < 7; j = j + 1) begin
-                if (operand_num == 1)
-                    digits1[j] = temp % 10;
-                else
-                    digits2[j] = temp % 10;
-                temp = temp / 10;
-            end
-        end
-    endtask
 
 endmodule
