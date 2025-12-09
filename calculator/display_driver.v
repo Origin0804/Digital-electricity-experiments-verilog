@@ -114,47 +114,47 @@ module display_driver(
             
             STATE_OP_SELECT: begin
                 // 状态1: 显示运算符的英文 State 1: Show operation in English
-                // Add=Add, Sub=Sub, Mul=Mul, Div=div
+                // 由于7段数码管限制，使用简化显示 Due to 7-segment limitations, use simplified display
                 case (operation)
-                    2'd0: begin  // Add
+                    2'd0: begin  // Add - 显示 "  Add  "
                         display_digits[7] = 4'd11;  // 空白
                         display_digits[6] = 4'd11;
                         display_digits[5] = 4'd11;
                         display_digits[4] = 4'd11;
-                        display_digits[3] = 4'd11;
-                        display_digits[2] = 4'd12;  // A
-                        display_digits[1] = 4'd13;  // d
-                        display_digits[0] = 4'd13;  // d -> "Add"
-                    end
-                    2'd1: begin  // Sub
-                        display_digits[7] = 4'd11;
-                        display_digits[6] = 4'd11;
-                        display_digits[5] = 4'd11;
-                        display_digits[4] = 4'd11;
-                        display_digits[3] = 4'd11;
-                        display_digits[2] = 4'd5;   // S
-                        display_digits[1] = 4'd0;   // u (显示为0)
-                        display_digits[0] = 4'd11;  // b (显示为空白) -> "S0b"
-                    end
-                    2'd2: begin  // Mul
-                        display_digits[7] = 4'd11;
-                        display_digits[6] = 4'd11;
-                        display_digits[5] = 4'd11;
-                        display_digits[4] = 4'd11;
-                        display_digits[3] = 4'd11;
-                        display_digits[2] = 4'd11;  // M (无法完美显示)
-                        display_digits[1] = 4'd0;   // u
-                        display_digits[0] = 4'd11;  // L -> "MuL"
-                    end
-                    2'd3: begin  // div
-                        display_digits[7] = 4'd11;
-                        display_digits[6] = 4'd11;
-                        display_digits[5] = 4'd11;
-                        display_digits[4] = 4'd11;
-                        display_digits[3] = 4'd11;
+                        display_digits[3] = 4'd12;  // A
                         display_digits[2] = 4'd13;  // d
-                        display_digits[1] = 4'd1;   // i (显示为1)
-                        display_digits[0] = 4'd0;   // v (显示为0) -> "d10"
+                        display_digits[1] = 4'd13;  // d
+                        display_digits[0] = 4'd11;  // 空白 -> "   Add "
+                    end
+                    2'd1: begin  // Sub - 显示 "  Sub  "
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd5;   // S
+                        display_digits[2] = 4'd0;   // u (显示为0)
+                        display_digits[1] = 4'd11;  // b (显示为空白)
+                        display_digits[0] = 4'd11;  // 空白 -> "   S0  "
+                    end
+                    2'd2: begin  // Mul - 显示 "  Mul  "
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd15;  // M (显示为P的上半部分)
+                        display_digits[2] = 4'd0;   // u (显示为0)
+                        display_digits[1] = 4'd11;  // L (显示为空白)
+                        display_digits[0] = 4'd11;  // 空白 -> "   P0  "
+                    end
+                    2'd3: begin  // Div - 显示 "  div  "
+                        display_digits[7] = 4'd11;
+                        display_digits[6] = 4'd11;
+                        display_digits[5] = 4'd11;
+                        display_digits[4] = 4'd11;
+                        display_digits[3] = 4'd13;  // d
+                        display_digits[2] = 4'd1;   // i (显示为1)
+                        display_digits[1] = 4'd0;   // v (显示为0)
+                        display_digits[0] = 4'd11;  // 空白 -> "   d10 "
                     end
                 endcase
             end
@@ -231,6 +231,8 @@ module display_driver(
             end
             else begin
                 // 正常显示 Normal display
+                // duan和duan1显示相同内容，因为EGO1板上两侧对称
+                // duan and duan1 show same content because EGO1 board has symmetric displays
                 duan <= seg_decode(digit_value, show_decimal);
                 duan1 <= seg_decode(digit_value, show_decimal);
             end

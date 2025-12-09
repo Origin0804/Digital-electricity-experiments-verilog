@@ -15,9 +15,9 @@ module long_press_detector(
     // Long press threshold: 1 second = 100 clock cycles (at 100Hz clock)
     parameter LONG_PRESS_THRESHOLD = 100;
     
-    reg [7:0] press_counter;    // 按键按下计数器 Press counter
+    reg [7:0] press_counter;    // 按键按下计数器 (8位足够100计数) Press counter (8 bits sufficient for 100)
     reg btn_prev;               // 上一个时钟周期的按键状态 Previous button state
-    reg press_detected;         // 已检测到长按 Long press detected
+    reg press_detected;         // 已检测到长按 Long press detected flag
 
     always @(posedge clk_db or posedge rst) begin
         if (rst) begin
@@ -39,10 +39,10 @@ module long_press_detector(
             end
             else if (btn_in && btn_prev) begin
                 // 按键持续按下 Button held down
-                if (press_counter < LONG_PRESS_THRESHOLD) begin
+                if (press_counter < LONG_PRESS_THRESHOLD && !press_detected) begin
                     press_counter <= press_counter + 1'b1;
                 end
-                else if (!press_detected) begin
+                else if (press_counter >= LONG_PRESS_THRESHOLD && !press_detected) begin
                     // 达到长按阈值 Reached long press threshold
                     long_press <= 1'b1;
                     press_detected <= 1'b1;

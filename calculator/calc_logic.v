@@ -43,6 +43,7 @@ module calc_logic(
     reg [3:0] digits2_array [6:0];  // 第二个数的7位数组 7 digit array for operand2
     reg [3:0] result_array [6:0];   // 结果的7位数组 7 digit array for result
     reg result_ready;               // 结果准备好标志 Result ready flag
+    reg [3:0] sw_digit_prev;        // 上一次的开关值用于边沿检测 Previous switch value for edge detection
     integer i;
 
     // 打包数组到输出向量 Pack arrays to output vectors
@@ -78,6 +79,7 @@ module calc_logic(
             is_result_negative <= 1'b0;
             operation <= 2'd0;
             result_ready <= 1'b0;
+            sw_digit_prev <= 4'd0;
             for (i = 0; i < 7; i = i + 1) begin
                 digits1_array[i] <= 4'd0;
                 digits2_array[i] <= 4'd0;
@@ -113,9 +115,12 @@ module calc_logic(
                         state <= STATE_OP_SELECT;
                         digit_pos <= 3'd6;  // 重置位置 Reset position
                     end
-                    // 持续更新当前位数字 Continuously update current digit
+                    // 更新当前位数字(仅当开关值改变时) Update current digit (only when switch changes)
                     // 使用SW4-7作为BCD输入 Use SW4-7 as BCD input
-                    digits1_array[digit_pos] <= sw_digit;
+                    if (sw_digit != sw_digit_prev && sw_digit <= 4'd9) begin
+                        digits1_array[digit_pos] <= sw_digit;
+                    end
+                    sw_digit_prev <= sw_digit;
                 end
 
                 STATE_OP_SELECT: begin
@@ -159,8 +164,11 @@ module calc_logic(
                         // 执行计算 Perform calculation
                         calculate_and_store_result();
                     end
-                    // 持续更新当前位数字 Continuously update current digit
-                    digits2_array[digit_pos] <= sw_digit;
+                    // 更新当前位数字(仅当开关值改变时) Update current digit (only when switch changes)
+                    if (sw_digit != sw_digit_prev && sw_digit <= 4'd9) begin
+                        digits2_array[digit_pos] <= sw_digit;
+                    end
+                    sw_digit_prev <= sw_digit;
                 end
 
                 STATE_RESULT: begin
