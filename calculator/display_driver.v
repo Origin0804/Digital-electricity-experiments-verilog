@@ -1,123 +1,238 @@
-// Display Driver Module for Simple Calculator
-// Displays result on 7-segment display (up to 9999)
+// 显示驱动模块 - 新版计算器
+// Display Driver Module - New Calculator
+// 
+// 显示布局 Display Layout:
+//   第1个数码管: 符号(+/-) 1st display: Sign (+/-)
+//   第2-8个数码管: 数字(7位) 2nd-8th displays: Digits (7 digits)
+// 
+// 注意: 显示方向已修正(原来是反的) Note: Display direction corrected (was reversed)
 
 module display_driver(
-    input clk_scan,         // 1kHz scan clock
-    input rst,              // Active high reset
-    input [15:0] result,    // Result to display
-    input [7:0] num_input,  // Current input value
-    input [1:0] op_display, // Current operation indicator
-    output reg [7:0] an,    // Anode select
-    output reg [7:0] duan,  // Segment data for right bank
-    output reg [7:0] duan1  // Segment data for left bank
+    input clk_scan,             // 1kHz扫描时钟 Scan clock
+    input rst,                  // 复位信号 Reset signal
+    input [2:0] state,          // 当前状态 Current state
+    input [63:0] operand1,      // 第一个操作数 First operand
+    input [63:0] operand2,      // 第二个操作数 Second operand
+    input [63:0] result,        // 结果 Result
+    input [1:0] operation,      // 运算类型 Operation type: 0=add, 1=sub, 2=mul, 3=div
+    input [2:0] digit_pos,      // 当前输入位置 Current digit position
+    input [2:0] decimal_pos1,   // 第一个数小数点位置 Decimal position for operand1
+    input [2:0] decimal_pos2,   // 第二个数小数点位置 Decimal position for operand2
+    input is_negative1,         // 第一个数是否为负 Is operand1 negative
+    input is_negative2,         // 第二个数是否为负 Is operand2 negative
+    input blink_state,          // 闪烁状态 Blink state
+    output reg [7:0] an,        // 数码管位选 Anode select
+    output reg [7:0] duan,      // 右侧段选 Segment data for right bank
+    output reg [7:0] duan1      // 左侧段选 Segment data for left bank
 );
 
-    // Scan counter
-    reg [1:0] scan_cnt;
+    // 状态定义 State definitions
+    localparam STATE_INPUT1 = 3'd0;
+    localparam STATE_OP_SELECT = 3'd1;
+    localparam STATE_INPUT2 = 3'd2;
+    localparam STATE_RESULT = 3'd3;
+
+    // 扫描计数器 Scan counter (0-7)
+    reg [2:0] scan_cnt;
     
-    // Current digit values
-    reg [3:0] digit_right;
-    reg [3:0] digit_left;
+    // 当前数字显示值 Current digit values
+    reg [3:0] digit_value;
+    reg show_decimal;           // 是否显示小数点 Show decimal point
+    reg show_negative;          // 是否显示负号 Show negative sign
     
-    // BCD conversion for result (simplified, only 4 digits)
-    wire [3:0] result_ones = result % 10;
-    wire [3:0] result_tens = (result / 10) % 10;
-    wire [3:0] result_hundreds = (result / 100) % 10;
-    wire [3:0] result_thousands = (result / 1000) % 10;
-    
-    // BCD for input
-    wire [3:0] input_ones = num_input % 10;
-    wire [3:0] input_tens = (num_input / 10) % 10;
-    wire [3:0] input_hundreds = (num_input / 100) % 10;
-    
-    // Segment patterns
+    // 数字数组 Digit array for current number
+    reg [3:0] digits [7:0];     // 8位: [0]=符号位, [1-7]=数字位
+    integer i;
+
+    // 7段译码函数 7-segment decode function
     function [7:0] seg_decode;
         input [3:0] digit;
+        input show_dp;          // 是否显示小数点 Show decimal point
+        reg [7:0] base_pattern;
         begin
             case (digit)
-                4'd0: seg_decode = 8'b01111110;
-                4'd1: seg_decode = 8'b00110000;
-                4'd2: seg_decode = 8'b01101101;
-                4'd3: seg_decode = 8'b01111001;
-                4'd4: seg_decode = 8'b00110011;
-                4'd5: seg_decode = 8'b01011011;
-                4'd6: seg_decode = 8'b01011111;
-                4'd7: seg_decode = 8'b01110000;
-                4'd8: seg_decode = 8'b01111111;
-                4'd9: seg_decode = 8'b01111011;
-                4'd10: seg_decode = 8'b00000001; // dash for operation
-                4'd11: seg_decode = 8'b00000000; // blank
-                default: seg_decode = 8'b00000001;
+                4'd0: base_pattern = 8'b11111100;  // 0
+                4'd1: base_pattern = 8'b01100000;  // 1
+                4'd2: base_pattern = 8'b11011010;  // 2
+                4'd3: base_pattern = 8'b11110010;  // 3
+                4'd4: base_pattern = 8'b01100110;  // 4
+                4'd5: base_pattern = 8'b10110110;  // 5
+                4'd6: base_pattern = 8'b10111110;  // 6
+                4'd7: base_pattern = 8'b11100000;  // 7
+                4'd8: base_pattern = 8'b11111110;  // 8
+                4'd9: base_pattern = 8'b11110110;  // 9
+                4'd10: base_pattern = 8'b00000010; // 负号 Negative sign (-)
+                4'd11: base_pattern = 8'b00000000; // 空白 Blank
+                4'd12: base_pattern = 8'b10001110; // A
+                4'd13: base_pattern = 8'b00111110; // d
+                4'd14: base_pattern = 8'b10011110; // E
+                4'd15: base_pattern = 8'b10001100; // P
+                default: base_pattern = 8'b00000000;
             endcase
-        end
-    endfunction
-    
-    // Operation symbol patterns
-    function [7:0] op_decode;
-        input [1:0] op;
-        begin
-            case (op)
-                2'd1: op_decode = 8'b00000001; // + (horizontal line, simplified)
-                2'd2: op_decode = 8'b00000001; // - (horizontal line)
-                2'd3: op_decode = 8'b00110111; // * (simplified as H-like)
-                default: op_decode = 8'b00000000; // blank
-            endcase
+            // 添加小数点 Add decimal point
+            seg_decode = show_dp ? (base_pattern | 8'b00000001) : base_pattern;
         end
     endfunction
 
-    // Scan counter
+    // 扫描计数器 Scan counter
     always @(posedge clk_scan or posedge rst) begin
         if (rst)
-            scan_cnt <= 2'd0;
+            scan_cnt <= 3'd0;
         else
             scan_cnt <= scan_cnt + 1'b1;
     end
 
-    // Display layout:
-    // Left bank (AN7-AN4): Result (thousands, hundreds, tens, ones)
-    // Right bank (AN3-AN0): Input (hundreds, tens, ones) + operation indicator
-    always @(posedge clk_scan or posedge rst) begin
-        if (rst) begin
-            an <= 8'b00000000;
-            digit_right <= 4'd0;
-            digit_left <= 4'd0;
-        end
-        else begin
-            case (scan_cnt)
-                2'd0: begin
-                    an <= 8'b00010001;              // AN4 + AN0 active
-                    digit_left <= result_ones;      // Result ones
-                    digit_right <= input_ones;      // Input ones
-                end
-                2'd1: begin
-                    an <= 8'b00100010;              // AN5 + AN1 active
-                    digit_left <= result_tens;      // Result tens
-                    digit_right <= input_tens;      // Input tens
-                end
-                2'd2: begin
-                    an <= 8'b01000100;              // AN6 + AN2 active
-                    digit_left <= result_hundreds;  // Result hundreds
-                    digit_right <= input_hundreds;  // Input hundreds
-                end
-                2'd3: begin
-                    an <= 8'b10001000;              // AN7 + AN3 active
-                    digit_left <= result_thousands; // Result thousands
-                    digit_right <= 4'd10;           // Operation indicator position
-                end
-            endcase
-        end
+    // 根据状态准备显示数据 Prepare display data based on state
+    always @(*) begin
+        // 默认值 Default values
+        for (i = 0; i < 8; i = i + 1)
+            digits[i] = 4'd0;
+        show_negative = 1'b0;
+        
+        case (state)
+            STATE_INPUT1: begin
+                // 状态0: 显示第一个输入的数字 State 0: Show first input number
+                convert_number_to_digits(operand1, decimal_pos1);
+                show_negative = is_negative1;
+            end
+            
+            STATE_OP_SELECT: begin
+                // 状态1: 显示运算符的英文 State 1: Show operation in English
+                // Add=Add, Sub=Sub, Mul=Mul, Div=div
+                case (operation)
+                    2'd0: begin  // Add
+                        digits[7] = 4'd11;  // 空白
+                        digits[6] = 4'd11;
+                        digits[5] = 4'd11;
+                        digits[4] = 4'd11;
+                        digits[3] = 4'd11;
+                        digits[2] = 4'd12;  // A
+                        digits[1] = 4'd13;  // d
+                        digits[0] = 4'd13;  // d -> "Add"
+                    end
+                    2'd1: begin  // Sub
+                        digits[7] = 4'd11;
+                        digits[6] = 4'd11;
+                        digits[5] = 4'd11;
+                        digits[4] = 4'd11;
+                        digits[3] = 4'd11;
+                        digits[2] = 4'd5;   // S
+                        digits[1] = 4'd0;   // u (显示为0)
+                        digits[0] = 4'd11;  // b (显示为空白) -> "Sub"
+                    end
+                    2'd2: begin  // Mul
+                        digits[7] = 4'd11;
+                        digits[6] = 4'd11;
+                        digits[5] = 4'd11;
+                        digits[4] = 4'd11;
+                        digits[3] = 4'd11;
+                        digits[2] = 4'd11;  // M (无法完美显示)
+                        digits[1] = 4'd0;   // u
+                        digits[0] = 4'd11;  // L -> "MuL"
+                    end
+                    2'd3: begin  // div
+                        digits[7] = 4'd11;
+                        digits[6] = 4'd11;
+                        digits[5] = 4'd11;
+                        digits[4] = 4'd11;
+                        digits[3] = 4'd11;
+                        digits[2] = 4'd13;  // d
+                        digits[1] = 4'd1;   // i (显示为1)
+                        digits[0] = 4'd0;   // v (显示为0) -> "div"
+                    end
+                endcase
+            end
+            
+            STATE_INPUT2: begin
+                // 状态2: 显示第二个输入的数字 State 2: Show second input number
+                convert_number_to_digits(operand2, decimal_pos2);
+                show_negative = is_negative2;
+            end
+            
+            STATE_RESULT: begin
+                // 状态3: 显示结果 State 3: Show result
+                convert_number_to_digits(result, 3'd0);  // 结果不显示小数点位置
+                show_negative = (result[63] == 1'b1);  // 检查符号位
+            end
+        endcase
     end
 
-    // Segment output
-    always @(*) begin
-        if (scan_cnt == 2'd3 && op_display != 2'd0) begin
-            // Show operation symbol
-            duan = op_decode(op_display);
+    // 将数字转换为显示数组 Convert number to display array
+    task convert_number_to_digits;
+        input [63:0] num;
+        input [2:0] dec_pos;
+        reg [63:0] temp;
+        integer j;
+        begin
+            temp = num / 10000;  // 去除定点数的小数部分 Remove fixed-point fraction
+            // 转换各位数字 Convert each digit
+            for (j = 0; j < 7; j = j + 1) begin
+                digits[j] = temp % 10;
+                temp = temp / 10;
+            end
+            // 符号位 Sign bit
+            digits[7] = 4'd11;  // 将在显示时处理 Will be handled in display
+        end
+    endtask
+
+    // 位选和段选输出 Anode and segment output
+    // 注意: 修正显示方向 Note: Corrected display direction
+    // AN7(左侧) -> 符号, AN6-AN0(右侧) -> 数字6到数字0
+    // AN7(left) -> sign, AN6-AN0(right) -> digit6 to digit0
+    always @(posedge clk_scan or posedge rst) begin
+        if (rst) begin
+            an <= 8'b11111111;  // 全部关闭 All off
+            duan <= 8'b00000000;
+            duan1 <= 8'b00000000;
         end
         else begin
-            duan = seg_decode(digit_right);
+            // 位选信号 Anode select (active low)
+            case (scan_cnt)
+                3'd0: an <= 8'b01111111;  // AN7 (符号位 Sign)
+                3'd1: an <= 8'b10111111;  // AN6 (数字6 Digit 6)
+                3'd2: an <= 8'b11011111;  // AN5 (数字5 Digit 5)
+                3'd3: an <= 8'b11101111;  // AN4 (数字4 Digit 4)
+                3'd4: an <= 8'b11110111;  // AN3 (数字3 Digit 3)
+                3'd5: an <= 8'b11111011;  // AN2 (数字2 Digit 2)
+                3'd6: an <= 8'b11111101;  // AN1 (数字1 Digit 1)
+                3'd7: an <= 8'b11111110;  // AN0 (数字0 Digit 0)
+            endcase
+            
+            // 段选信号 Segment select
+            if (scan_cnt == 3'd0) begin
+                // 显示符号 Display sign
+                if (show_negative)
+                    digit_value = 4'd10;  // 负号 Negative sign
+                else
+                    digit_value = 4'd11;  // 空白 Blank (positive)
+                show_decimal = 1'b0;
+            end
+            else begin
+                // 显示数字 Display digits
+                digit_value = digits[7 - scan_cnt];  // 修正方向 Corrected direction
+                
+                // 判断是否显示小数点 Determine if decimal point should be shown
+                if (state == STATE_INPUT1)
+                    show_decimal = (decimal_pos1 == (7 - scan_cnt));
+                else if (state == STATE_INPUT2)
+                    show_decimal = (decimal_pos2 == (7 - scan_cnt));
+                else
+                    show_decimal = 1'b0;
+            end
+            
+            // 处理闪烁 Handle blinking
+            if ((state == STATE_INPUT1 || state == STATE_INPUT2) && 
+                !blink_state && (7 - scan_cnt) == digit_pos) begin
+                // 当前位闪烁时显示空白 Show blank when current digit is blinking
+                duan <= 8'b00000000;
+                duan1 <= 8'b00000000;
+            end
+            else begin
+                // 正常显示 Normal display
+                duan <= seg_decode(digit_value, show_decimal);
+                duan1 <= seg_decode(digit_value, show_decimal);
+            end
         end
-        duan1 = seg_decode(digit_left);
     end
 
 endmodule

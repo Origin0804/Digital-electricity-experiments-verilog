@@ -1,160 +1,261 @@
-// Calculator Logic Module
-// Implements simple calculator with add, subtract, multiply
-// Features:
-//   - Sequential operations (no operator precedence)
-//   - Accumulator-based calculation
-//   - 16-bit result display
+// 计算器逻辑模块 - 新版交互设计
+// Calculator Logic Module - New Interactive Design
+// 
+// 功能特性 Features:
+//   - 4状态交互流程: 输入数字1 -> 选择运算 -> 输入数字2 -> 显示结果
+//   - 4-state interaction: Input num1 -> Select operation -> Input num2 -> Show result
+//   - 支持加减乘除运算 Supports add, subtract, multiply, divide
+//   - 结果自动作为下一轮第一个数字 Result automatically becomes first number for next round
+//   - 支持小数运算 Supports decimal operations
 
 module calc_logic(
-    input clk_db,           // Debounce clock
-    input rst,              // Active high reset (clear)
-    input op_add,           // Add operation (S1)
-    input op_sub,           // Subtract operation (S2)
-    input op_mul,           // Multiply operation (S3)
-    input op_enter,         // Enter/Equals (S4)
-    input [7:0] num_input,  // Number input from switches
-    output reg [15:0] result,   // Current result
-    output reg [1:0] op_display // Current operation: 0=none, 1=add, 2=sub, 3=mul
+    input clk_db,               // 消抖时钟 Debounce clock
+    input clk_blink,            // 闪烁时钟 Blink clock for digit display
+    input rst,                  // 复位信号 Active high reset
+    input btn_left,             // S0: 左移按键 Left navigation
+    input btn_right,            // S3: 右移按键 Right navigation  
+    input s2_short,             // S2短按: 进入下一步 Short press to next step
+    input s2_long,              // S2长按: 标记小数点 Long press for decimal point
+    input [3:0] sw_op,          // SW0-3: 运算选择 Operation selection (add/sub/mul/div)
+    input [3:0] sw_digit,       // SW输入数字 Digit input from switches
+    output reg [63:0] operand1, // 第一个操作数 First operand (fixed-point)
+    output reg [63:0] operand2, // 第二个操作数 Second operand (fixed-point)
+    output reg [63:0] result,   // 计算结果 Calculation result
+    output reg [1:0] operation, // 当前运算 Current operation: 0=add, 1=sub, 2=mul, 3=div
+    output reg [2:0] state,     // 当前状态 Current state: 0=input1, 1=op_select, 2=input2, 3=result
+    output reg [2:0] digit_pos, // 当前数字位置 Current digit position
+    output reg [2:0] decimal_pos1, // 第一个数的小数点位置 Decimal position for operand1
+    output reg [2:0] decimal_pos2, // 第二个数的小数点位置 Decimal position for operand2
+    output reg is_negative1,    // 第一个数是否为负 Is operand1 negative
+    output reg is_negative2,    // 第二个数是否为负 Is operand2 negative
+    output reg blink_state      // 闪烁状态 Blink state
 );
 
-    // Internal registers
-    reg [15:0] accumulator;     // Running total
-    reg [15:0] operand;         // Current operand
-    reg [1:0] pending_op;       // Pending operation
-    reg first_entry;            // Flag for first number entry
-    
-    // State machine
+    // 状态定义 State definitions
+    localparam STATE_INPUT1 = 3'd0;     // 输入第一个数字 Input first number
+    localparam STATE_OP_SELECT = 3'd1;  // 选择运算 Select operation
+    localparam STATE_INPUT2 = 3'd2;     // 输入第二个数字 Input second number
+    localparam STATE_RESULT = 3'd3;     // 显示结果 Show result
+
+    // 内部寄存器 Internal registers
+    reg [3:0] digits1 [6:0];    // 第一个数字的7位 7 digits for operand1
+    reg [3:0] digits2 [6:0];    // 第二个数字的7位 7 digits for operand2
+    reg [63:0] temp_result;     // 临时结果 Temporary result
+    reg result_ready;           // 结果准备好标志 Result ready flag
+    integer i;
+
+    // 闪烁状态生成 Blink state generation
+    always @(posedge clk_blink or posedge rst) begin
+        if (rst)
+            blink_state <= 1'b0;
+        else if (state == STATE_INPUT1 || state == STATE_INPUT2)
+            blink_state <= ~blink_state;
+        else
+            blink_state <= 1'b1;  // 非输入状态不闪烁 No blinking in non-input states
+    end
+
+    // 主状态机 Main state machine
     always @(posedge clk_db or posedge rst) begin
         if (rst) begin
-            accumulator <= 16'd0;
-            operand <= 16'd0;
-            pending_op <= 2'd0;
-            result <= 16'd0;
-            op_display <= 2'd0;
-            first_entry <= 1'b1;
+            // 复位所有状态 Reset all states
+            state <= STATE_INPUT1;
+            digit_pos <= 3'd6;
+            decimal_pos1 <= 3'd0;
+            decimal_pos2 <= 3'd0;
+            is_negative1 <= 1'b0;
+            is_negative2 <= 1'b0;
+            operand1 <= 64'd0;
+            operand2 <= 64'd0;
+            result <= 64'd0;
+            operation <= 2'd0;
+            result_ready <= 1'b0;
+            for (i = 0; i < 7; i = i + 1) begin
+                digits1[i] <= 4'd0;
+                digits2[i] <= 4'd0;
+            end
         end
         else begin
-            // Read current input value
-            operand <= {8'd0, num_input};
-            
-            // Enter/Equals - execute pending operation
-            if (op_enter) begin
-                case (pending_op)
-                    2'd0: begin
-                        // No pending operation, just store the value
-                        accumulator <= {8'd0, num_input};
-                        result <= {8'd0, num_input};
+            case (state)
+                STATE_INPUT1: begin
+                    // 状态0: 输入第一个数字 State 0: Input first number
+                    // 如果上一轮有结果，直接使用 If previous result exists, use it
+                    if (result_ready) begin
+                        operand1 <= result;
+                        result_ready <= 1'b0;
+                        // 将结果转换回数字显示 Convert result back to digits
+                        convert_to_digits(result, 1);
                     end
-                    2'd1: begin
-                        // Add
-                        accumulator <= accumulator + {8'd0, num_input};
-                        result <= accumulator + {8'd0, num_input};
+                    
+                    // 左移 Left navigation
+                    if (btn_left && digit_pos < 3'd6) begin
+                        digit_pos <= digit_pos + 1'b1;
                     end
-                    2'd2: begin
-                        // Subtract
-                        accumulator <= accumulator - {8'd0, num_input};
-                        result <= accumulator - {8'd0, num_input};
+                    // 右移 Right navigation
+                    else if (btn_right && digit_pos > 3'd0) begin
+                        digit_pos <= digit_pos - 1'b1;
                     end
-                    2'd3: begin
-                        // Multiply
-                        accumulator <= accumulator * {8'd0, num_input};
-                        result <= accumulator * {8'd0, num_input};
+                    // 长按标记小数点 Long press for decimal point
+                    else if (s2_long) begin
+                        decimal_pos1 <= digit_pos;
                     end
-                endcase
-                pending_op <= 2'd0;
-                op_display <= 2'd0;
-                first_entry <= 1'b0;
-            end
-            // Operation buttons
-            else if (op_add) begin
-                if (first_entry) begin
-                    accumulator <= {8'd0, num_input};
-                    result <= {8'd0, num_input};
-                    first_entry <= 1'b0;
+                    // 短按进入下一步 Short press to next step
+                    else if (s2_short) begin
+                        operand1 <= calculate_number(1);
+                        state <= STATE_OP_SELECT;
+                        digit_pos <= 3'd6;  // 重置位置 Reset position
+                    end
+                    // 更新当前位数字 Update current digit
+                    else if (sw_digit <= 4'd9) begin
+                        digits1[digit_pos] <= sw_digit;
+                    end
                 end
-                else if (pending_op != 2'd0) begin
-                    // Execute previous operation first and update result with new value
-                    case (pending_op)
-                        2'd1: begin 
-                            accumulator <= accumulator + {8'd0, num_input};
-                            result <= accumulator + {8'd0, num_input};
-                        end
-                        2'd2: begin 
-                            accumulator <= accumulator - {8'd0, num_input};
-                            result <= accumulator - {8'd0, num_input};
-                        end
-                        2'd3: begin 
-                            accumulator <= accumulator * {8'd0, num_input};
-                            result <= accumulator * {8'd0, num_input};
-                        end
-                        default: begin
-                            accumulator <= accumulator;
-                            result <= accumulator;
-                        end
-                    endcase
+
+                STATE_OP_SELECT: begin
+                    // 状态1: 选择运算符 State 1: Select operation
+                    // 使用SW0-3选择运算 Use SW0-3 to select operation
+                    // SW3=除法, SW2=乘法, SW1=减法, SW0=加法
+                    // SW3=div, SW2=mul, SW1=sub, SW0=add
+                    if (sw_op[3])
+                        operation <= 2'd3;  // 除法 Divide
+                    else if (sw_op[2])
+                        operation <= 2'd2;  // 乘法 Multiply
+                    else if (sw_op[1])
+                        operation <= 2'd1;  // 减法 Subtract
+                    else if (sw_op[0])
+                        operation <= 2'd0;  // 加法 Add
+                    
+                    // 短按S2进入下一步 Short press S2 to next step
+                    if (s2_short) begin
+                        state <= STATE_INPUT2;
+                        digit_pos <= 3'd6;  // 重置位置 Reset position
+                    end
                 end
-                pending_op <= 2'd1;  // Set add as pending
-                op_display <= 2'd1;
-            end
-            else if (op_sub) begin
-                if (first_entry) begin
-                    accumulator <= {8'd0, num_input};
-                    result <= {8'd0, num_input};
-                    first_entry <= 1'b0;
+
+                STATE_INPUT2: begin
+                    // 状态2: 输入第二个数字 State 2: Input second number
+                    // 左移 Left navigation
+                    if (btn_left && digit_pos < 3'd6) begin
+                        digit_pos <= digit_pos + 1'b1;
+                    end
+                    // 右移 Right navigation
+                    else if (btn_right && digit_pos > 3'd0) begin
+                        digit_pos <= digit_pos - 1'b1;
+                    end
+                    // 长按标记小数点 Long press for decimal point
+                    else if (s2_long) begin
+                        decimal_pos2 <= digit_pos;
+                    end
+                    // 短按进入计算 Short press to calculate
+                    else if (s2_short) begin
+                        operand2 <= calculate_number(2);
+                        state <= STATE_RESULT;
+                        // 执行计算 Perform calculation
+                        perform_calculation();
+                    end
+                    // 更新当前位数字 Update current digit
+                    else if (sw_digit <= 4'd9) begin
+                        digits2[digit_pos] <= sw_digit;
+                    end
                 end
-                else if (pending_op != 2'd0) begin
-                    case (pending_op)
-                        2'd1: begin 
-                            accumulator <= accumulator + {8'd0, num_input};
-                            result <= accumulator + {8'd0, num_input};
-                        end
-                        2'd2: begin 
-                            accumulator <= accumulator - {8'd0, num_input};
-                            result <= accumulator - {8'd0, num_input};
-                        end
-                        2'd3: begin 
-                            accumulator <= accumulator * {8'd0, num_input};
-                            result <= accumulator * {8'd0, num_input};
-                        end
-                        default: begin
-                            accumulator <= accumulator;
-                            result <= accumulator;
-                        end
-                    endcase
+
+                STATE_RESULT: begin
+                    // 状态3: 显示结果 State 3: Show result
+                    result_ready <= 1'b1;
+                    // 短按S2开始新的计算 Short press S2 to start new calculation
+                    if (s2_short) begin
+                        state <= STATE_INPUT1;
+                        digit_pos <= 3'd6;
+                        decimal_pos2 <= 3'd0;
+                        for (i = 0; i < 7; i = i + 1)
+                            digits2[i] <= 4'd0;
+                    end
                 end
-                pending_op <= 2'd2;  // Set subtract as pending
-                op_display <= 2'd2;
-            end
-            else if (op_mul) begin
-                if (first_entry) begin
-                    accumulator <= {8'd0, num_input};
-                    result <= {8'd0, num_input};
-                    first_entry <= 1'b0;
-                end
-                else if (pending_op != 2'd0) begin
-                    case (pending_op)
-                        2'd1: begin 
-                            accumulator <= accumulator + {8'd0, num_input};
-                            result <= accumulator + {8'd0, num_input};
-                        end
-                        2'd2: begin 
-                            accumulator <= accumulator - {8'd0, num_input};
-                            result <= accumulator - {8'd0, num_input};
-                        end
-                        2'd3: begin 
-                            accumulator <= accumulator * {8'd0, num_input};
-                            result <= accumulator * {8'd0, num_input};
-                        end
-                        default: begin
-                            accumulator <= accumulator;
-                            result <= accumulator;
-                        end
-                    endcase
-                end
-                pending_op <= 2'd3;  // Set multiply as pending
-                op_display <= 2'd3;
-            end
+            endcase
         end
     end
+
+    // 计算数字值任务 Calculate number value task
+    function [63:0] calculate_number;
+        input integer operand_num;  // 1=operand1, 2=operand2
+        reg [63:0] temp_value;
+        reg [2:0] dec_pos;
+        integer j;
+        begin
+            temp_value = 64'd0;
+            dec_pos = (operand_num == 1) ? decimal_pos1 : decimal_pos2;
+            
+            // 将各位数字转换为实际数值 Convert digits to actual value
+            for (j = 0; j < 7; j = j + 1) begin
+                if (operand_num == 1)
+                    temp_value = temp_value + (digits1[j] * power_of_10(j));
+                else
+                    temp_value = temp_value + (digits2[j] * power_of_10(j));
+            end
+            
+            // 调整小数点 Adjust for decimal point
+            if (dec_pos > 0) begin
+                // 保留小数点后4位精度 Keep 4 decimal places
+                temp_value = temp_value * 10000 / power_of_10(dec_pos);
+            end
+            else begin
+                // 没有小数点 No decimal point
+                temp_value = temp_value * 10000;
+            end
+            
+            calculate_number = temp_value;
+        end
+    endfunction
+
+    // 执行计算任务 Perform calculation task
+    task perform_calculation;
+        reg signed [63:0] op1_signed;
+        reg signed [63:0] op2_signed;
+        begin
+            // 处理符号 Handle signs
+            op1_signed = is_negative1 ? -operand1 : operand1;
+            op2_signed = is_negative2 ? -operand2 : operand2;
+            
+            case (operation)
+                2'd0: result <= op1_signed + op2_signed;  // 加法 Add
+                2'd1: result <= op1_signed - op2_signed;  // 减法 Subtract
+                2'd2: result <= (op1_signed * op2_signed) / 10000;  // 乘法(调整定点) Multiply
+                2'd3: begin  // 除法 Divide
+                    if (op2_signed != 0)
+                        result <= (op1_signed * 10000) / op2_signed;
+                    else
+                        result <= 64'd0;  // 除以0返回0 Division by zero returns 0
+                end
+            endcase
+        end
+    endtask
+
+    // 10的幂次函数 Power of 10 function
+    function [63:0] power_of_10;
+        input integer exp;
+        integer k;
+        begin
+            power_of_10 = 64'd1;
+            for (k = 0; k < exp; k = k + 1)
+                power_of_10 = power_of_10 * 10;
+        end
+    endfunction
+
+    // 将数字转换回位显示 Convert number back to digits
+    task convert_to_digits;
+        input [63:0] num;
+        input integer operand_num;
+        reg [63:0] temp;
+        integer j;
+        begin
+            temp = num / 10000;  // 转回整数部分 Convert back to integer
+            for (j = 0; j < 7; j = j + 1) begin
+                if (operand_num == 1)
+                    digits1[j] = temp % 10;
+                else
+                    digits2[j] = temp % 10;
+                temp = temp / 10;
+            end
+        end
+    endtask
 
 endmodule
