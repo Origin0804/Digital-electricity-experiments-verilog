@@ -31,9 +31,9 @@ module top(
     wire s2_short, s2_long;
     
     // 计算器逻辑输出 Calculator logic outputs
-    wire [3:0] digits1 [6:0];  // 第一个数的各位数字
-    wire [3:0] digits2 [6:0];  // 第二个数的各位数字
-    wire [3:0] result_digits [6:0];  // 结果的各位数字
+    wire [27:0] digits1;       // 第一个数的各位数字 (7x4bit)
+    wire [27:0] digits2;       // 第二个数的各位数字 (7x4bit)
+    wire [27:0] result_digits; // 结果的各位数字 (7x4bit)
     wire [1:0] operation;
     wire [2:0] state;
     wire [2:0] digit_pos;

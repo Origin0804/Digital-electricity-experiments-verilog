@@ -11,9 +11,9 @@ module display_driver(
     input clk_scan,             // 1kHz扫描时钟 Scan clock
     input rst,                  // 复位信号 Reset signal
     input [2:0] state,          // 当前状态 Current state
-    input [3:0] digits1 [6:0],  // 第一个数的各位数字 Digits of first operand
-    input [3:0] digits2 [6:0],  // 第二个数的各位数字 Digits of second operand
-    input [3:0] result_digits [6:0], // 结果的各位数字 Digits of result
+    input [27:0] digits1,       // 第一个数的各位数字 (7x4bit) Digits of first operand
+    input [27:0] digits2,       // 第二个数的各位数字 (7x4bit) Digits of second operand
+    input [27:0] result_digits, // 结果的各位数字 (7x4bit) Digits of result
     input [1:0] operation,      // 运算类型 Operation type: 0=add, 1=sub, 2=mul, 3=div
     input [2:0] digit_pos,      // 当前输入位置 Current digit position
     input [2:0] decimal_pos1,   // 第一个数小数点位置 Decimal position for operand1
@@ -43,7 +43,20 @@ module display_driver(
     
     // 临时数字数组用于显示 Temporary digit array for display
     reg [3:0] display_digits [7:0];  // 8位: [0]=符号位, [1-7]=数字位
+    // 解包输入数组 Unpack input arrays
+    reg [3:0] digits1_array [6:0];
+    reg [3:0] digits2_array [6:0];
+    reg [3:0] result_array [6:0];
     integer i;
+    
+    // 解包向量到数组 Unpack vectors to arrays
+    always @(*) begin
+        for (i = 0; i < 7; i = i + 1) begin
+            digits1_array[i] = digits1[i*4 +: 4];
+            digits2_array[i] = digits2[i*4 +: 4];
+            result_array[i] = result_digits[i*4 +: 4];
+        end
+    end
 
     // 7段译码函数 7-segment decode function
     function [7:0] seg_decode;
@@ -94,7 +107,7 @@ module display_driver(
             STATE_INPUT1: begin
                 // 状态0: 显示第一个输入的数字 State 0: Show first input number
                 for (i = 0; i < 7; i = i + 1)
-                    display_digits[i] = digits1[i];
+                    display_digits[i] = digits1_array[i];
                 display_digits[7] = 4'd11;  // 符号位 Sign bit
                 show_negative = is_negative1;
             end
@@ -149,7 +162,7 @@ module display_driver(
             STATE_INPUT2: begin
                 // 状态2: 显示第二个输入的数字 State 2: Show second input number
                 for (i = 0; i < 7; i = i + 1)
-                    display_digits[i] = digits2[i];
+                    display_digits[i] = digits2_array[i];
                 display_digits[7] = 4'd11;  // 符号位 Sign bit
                 show_negative = is_negative2;
             end
@@ -157,7 +170,7 @@ module display_driver(
             STATE_RESULT: begin
                 // 状态3: 显示结果 State 3: Show result
                 for (i = 0; i < 7; i = i + 1)
-                    display_digits[i] = result_digits[i];
+                    display_digits[i] = result_array[i];
                 display_digits[7] = 4'd11;  // 符号位 Sign bit
                 show_negative = is_result_negative;
             end

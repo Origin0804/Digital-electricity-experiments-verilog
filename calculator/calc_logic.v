@@ -18,9 +18,9 @@ module calc_logic(
     input s2_long,              // S2长按: 标记小数点 Long press for decimal point
     input [3:0] sw_op,          // SW0-3: 运算选择 Operation selection (add/sub/mul/div)
     input [3:0] sw_digit,       // SW输入数字 Digit input from switches
-    output reg [3:0] digits1 [6:0], // 第一个数的各位数字 Digits of first operand
-    output reg [3:0] digits2 [6:0], // 第二个数的各位数字 Digits of second operand  
-    output reg [3:0] result_digits [6:0], // 结果的各位数字 Digits of result
+    output reg [27:0] digits1,  // 第一个数的各位数字 (7位x4bit) Digits of first operand (7 digits x 4 bits)
+    output reg [27:0] digits2,  // 第二个数的各位数字 (7位x4bit) Digits of second operand (7 digits x 4 bits)
+    output reg [27:0] result_digits, // 结果的各位数字 (7位x4bit) Digits of result (7 digits x 4 bits)
     output reg [1:0] operation, // 当前运算 Current operation: 0=add, 1=sub, 2=mul, 3=div
     output reg [2:0] state,     // 当前状态 Current state: 0=input1, 1=op_select, 2=input2, 3=result
     output reg [2:0] digit_pos, // 当前数字位置 Current digit position
@@ -39,8 +39,21 @@ module calc_logic(
     localparam STATE_RESULT = 3'd3;     // 显示结果 Show result
 
     // 内部寄存器 Internal registers
-    reg result_ready;           // 结果准备好标志 Result ready flag
+    reg [3:0] digits1_array [6:0];  // 第一个数的7位数组 7 digit array for operand1
+    reg [3:0] digits2_array [6:0];  // 第二个数的7位数组 7 digit array for operand2
+    reg [3:0] result_array [6:0];   // 结果的7位数组 7 digit array for result
+    reg result_ready;               // 结果准备好标志 Result ready flag
     integer i;
+
+    // 打包数组到输出向量 Pack arrays to output vectors
+    always @(*) begin
+        digits1 = {digits1_array[6], digits1_array[5], digits1_array[4], digits1_array[3],
+                   digits1_array[2], digits1_array[1], digits1_array[0]};
+        digits2 = {digits2_array[6], digits2_array[5], digits2_array[4], digits2_array[3],
+                   digits2_array[2], digits2_array[1], digits2_array[0]};
+        result_digits = {result_array[6], result_array[5], result_array[4], result_array[3],
+                        result_array[2], result_array[1], result_array[0]};
+    end
 
     // 闪烁状态生成 Blink state generation
     always @(posedge clk_blink or posedge rst) begin
@@ -66,9 +79,9 @@ module calc_logic(
             operation <= 2'd0;
             result_ready <= 1'b0;
             for (i = 0; i < 7; i = i + 1) begin
-                digits1[i] <= 4'd0;
-                digits2[i] <= 4'd0;
-                result_digits[i] <= 4'd0;
+                digits1_array[i] <= 4'd0;
+                digits2_array[i] <= 4'd0;
+                result_array[i] <= 4'd0;
             end
         end
         else begin
@@ -78,7 +91,7 @@ module calc_logic(
                     // 如果上一轮有结果，复制到第一个数 If previous result exists, copy to first operand
                     if (result_ready && !s2_short) begin
                         for (i = 0; i < 7; i = i + 1)
-                            digits1[i] <= result_digits[i];
+                            digits1_array[i] <= result_array[i];
                         is_negative1 <= is_result_negative;
                         result_ready <= 1'b0;
                     end
@@ -102,7 +115,7 @@ module calc_logic(
                     end
                     // 持续更新当前位数字 Continuously update current digit
                     // 使用SW4-7作为BCD输入 Use SW4-7 as BCD input
-                    digits1[digit_pos] <= sw_digit;
+                    digits1_array[digit_pos] <= sw_digit;
                 end
 
                 STATE_OP_SELECT: begin
@@ -147,7 +160,7 @@ module calc_logic(
                         calculate_and_store_result();
                     end
                     // 持续更新当前位数字 Continuously update current digit
-                    digits2[digit_pos] <= sw_digit;
+                    digits2_array[digit_pos] <= sw_digit;
                 end
 
                 STATE_RESULT: begin
@@ -159,7 +172,7 @@ module calc_logic(
                         digit_pos <= 3'd6;
                         decimal_pos2 <= 3'd0;
                         for (i = 0; i < 7; i = i + 1)
-                            digits2[i] <= 4'd0;
+                            digits2_array[i] <= 4'd0;
                     end
                 end
             endcase
@@ -176,8 +189,8 @@ module calc_logic(
             op1 = 64'd0;
             op2 = 64'd0;
             for (j = 0; j < 7; j = j + 1) begin
-                op1 = op1 + (digits1[j] * power_of_10(j));
-                op2 = op2 + (digits2[j] * power_of_10(j));
+                op1 = op1 + (digits1_array[j] * power_of_10(j));
+                op2 = op2 + (digits2_array[j] * power_of_10(j));
             end
             
             // 调整小数点 Adjust for decimal points
@@ -218,7 +231,7 @@ module calc_logic(
             
             // 存储结果到数字数组 Store result in digit array
             for (j = 0; j < 7; j = j + 1) begin
-                result_digits[j] = temp_res % 10;
+                result_array[j] = temp_res % 10;
                 temp_res = temp_res / 10;
             end
         end
