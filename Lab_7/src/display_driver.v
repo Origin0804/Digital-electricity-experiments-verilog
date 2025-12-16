@@ -36,6 +36,9 @@ module display_driver(
     end
     
     // BCD分离（十进制）
+    // 注意：使用除法和取模运算符进行BCD转换
+    // Vivado综合器会自动优化这些运算为硬件友好的实现
+    // 对于小范围的常数除法（除以10），综合结果通常很高效
     assign digit_0 = freq_limited % 10;
     assign digit_1 = (freq_limited / 10) % 10;
     assign digit_2 = (freq_limited / 100) % 10;

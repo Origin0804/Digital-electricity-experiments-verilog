@@ -21,9 +21,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports rst]
 # NE555信号输入
 # ========================================
 # J5扩展口 - 使用通用扩展引脚
-# 注意：实际使用时需要根据硬件连接确定具体引脚
-# 这里使用一个典型的FPGA扩展引脚作为示例
+# 
+# 重要提示：
+# 以下引脚(M2)是示例引脚，实际使用前必须根据硬件连接确定正确的引脚
+# 请查阅EGO1用户手册中J5扩展口的IO_L18N引脚定义
 # 如果您的硬件手册中有明确的J5-IO_L18N引脚定义，请替换此引脚号
+# 
+# 可能的备选引脚（根据您的硬件连接选择）：
+# - M2, N3, L5, M5等（需查阅具体手册确认）
 set_property PACKAGE_PIN M2 [get_ports signal_in]
 set_property IOSTANDARD LVCMOS33 [get_ports signal_in]
 

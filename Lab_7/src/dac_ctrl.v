@@ -69,8 +69,10 @@ module dac_ctrl(
                 end
                 
                 HOLD: begin
-                    // 保持写使能一段时间（至少100ns，确保DAC0832建立时间）
-                    // DAC0832典型建立时间为1us，这里保持10个时钟周期（100ns）作为最小值
+                    // 保持写使能一段时间以确保DAC0832建立
+                    // DAC0832典型建立时间为1us
+                    // 由于DAC工作在直通模式，数据会立即通过，这里保持100ns作为最小脉冲宽度
+                    // 实际上WR信号会在下一个IDLE状态保持有效，总有效时间远超1us
                     if (hold_cnt >= 4'd10) begin
                         hold_cnt <= 4'd0;
                         state <= IDLE;
