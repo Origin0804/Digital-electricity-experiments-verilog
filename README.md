@@ -133,6 +133,44 @@ EGO1 板载两组开关：一组是位于板子下方的**拨码开关 (Slide Sw
 | **BT_RX** | [cite_start]N2 [cite: 334] | FPGA 发送 |
 | **BT_TX** | [cite_start]L3 [cite: 334] | FPGA 接收 |
 
+---
+
+### 7. J5 扩展口 (2x18)
+| 2x18 标号 | 原理图标号 | FPGA IO PIN |
+| :--- | :--- | :--- |
+| 1 | AD2P_15 | B16 |
+| 2 | AD2N_15 | B17 |
+| 3 | AD10P_15 | A15 |
+| 4 | AD10N_15 | A16 |
+| 5 | AD3P_15 | A13 |
+| 6 | AD3N_15 | A14 |
+| 7 | AD11P_15 | B18 |
+| 8 | AD11N_15 | A18 |
+| 9 | AD9P_15 | F13 |
+| 10 | AD9N_15 | F14 |
+| 11 | AD8P_15 | B13 |
+| 12 | AD8N_15 | B14 |
+| 13 | AD0P_15 | D14 |
+| 14 | AD0N_15 | C14 |
+| 15 | IO_L4P | B11 |
+| 16 | IO_L4N | A11 |
+| 17 | IO_L11P | E15 |
+| 18 | IO_L11N | E16 |
+| 19 | IO_L12P | D15 |
+| 20 | IO_L12N | C15 |
+| 21 | IO_L13P | H16 |
+| 22 | IO_L13N | G16 |
+| 23 | IO_L14P | F15 |
+| 24 | IO_L14N | F16 |
+| 25 | IO_L15P | H14 |
+| 26 | IO_L15N | G14 |
+| 27 | IO_L16P | E17 |
+| 28 | IO_L16N | D17 |
+| 29 | IO_L17P | K13 |
+| 30 | IO_L17N | J13 |
+| 31 | IO_L18P | H17 |
+| 32 | IO_L18N | G17 |
+
 ### Circumstance of experiment_6
 This experiment request us to finish 8 different peojects as file request.md
 No.2 stopwatch has been finished fundamentally. Others are gennerated by copilot, which are not ensured to be correct.

@@ -23,13 +23,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports rst]
 # J5扩展口 - 使用通用扩展引脚
 # 
 # 重要提示：
-# 以下引脚(M2)是示例引脚，实际使用前必须根据硬件连接确定正确的引脚
-# 请查阅EGO1用户手册中J5扩展口的IO_L18N引脚定义
-# 如果您的硬件手册中有明确的J5-IO_L18N引脚定义，请替换此引脚号
-# 
+# 推荐默认使用 J5 的 IO_L18N 引脚 (G17)，如硬件连接不同请改为实际引脚
+#
 # 可能的备选引脚（根据您的硬件连接选择）：
-# - M2, N3, L5, M5等（需查阅具体手册确认）
-set_property PACKAGE_PIN M2 [get_ports signal_in]
+# - B16, B17, A15, A16, A13, A14, B18, A18, F13, F14,
+#   B13, B14, D14, C14, B11, A11, E15, E16, D15, C15,
+#   H16, G16, F15, F16, H14, G14, E17, D17, K13, J13,
+#   H17, G17
+set_property PACKAGE_PIN G17 [get_ports signal_in]
 set_property IOSTANDARD LVCMOS33 [get_ports signal_in]
 
 # ========================================
