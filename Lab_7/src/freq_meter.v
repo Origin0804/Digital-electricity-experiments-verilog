@@ -20,7 +20,6 @@ module freq_meter(
     
     // 计数器
     reg [15:0] edge_count;      // 当前窗口内的上升沿计数
-    reg [15:0] freq_latch;      // 锁存的频率值
     
     // 窗口控制
     reg clk_1Hz_prev;
@@ -74,15 +73,13 @@ module freq_meter(
         end
     end
     
-    // 频率值锁存与输出
+    // 频率值输出
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            freq_latch <= 16'd0;
             freq <= 16'd0;
         end else begin
             if (window_tick) begin
                 // 窗口结束，锁存当前计数值作为频率
-                freq_latch <= edge_count;
                 freq <= edge_count;
             end
         end

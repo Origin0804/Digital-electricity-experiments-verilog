@@ -1,5 +1,6 @@
-// Debounce Module for Digital Stopwatch
-// Debounces button inputs S0-S4 and SW7 switch
+// 按键消抖模块 - Debounce Module
+// 用于消除按键和开关的机械抖动
+// 适用于各种数字电路实验项目
 
 module debounce(
     input clk_db,           // Debounce clock (100Hz)

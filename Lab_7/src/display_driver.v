@@ -18,16 +18,24 @@ module display_driver(
     // 当前显示的数字
     reg [3:0] digit;
     
+    // 频率值限制（用于显示）
+    reg [15:0] freq_limited;
+    
     // 频率值的各位数字
     wire [3:0] digit_0;  // 个位
     wire [3:0] digit_1;  // 十位
     wire [3:0] digit_2;  // 百位
     wire [3:0] digit_3;  // 千位
     
-    // BCD分离（十进制）
     // 限制显示范围为0~9999
-    wire [15:0] freq_limited = (freq > 16'd9999) ? 16'd9999 : freq;
+    always @(*) begin
+        if (freq > 16'd9999)
+            freq_limited = 16'd9999;
+        else
+            freq_limited = freq;
+    end
     
+    // BCD分离（十进制）
     assign digit_0 = freq_limited % 10;
     assign digit_1 = (freq_limited / 10) % 10;
     assign digit_2 = (freq_limited / 100) % 10;
