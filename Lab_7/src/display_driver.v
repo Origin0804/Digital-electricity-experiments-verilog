@@ -15,9 +15,6 @@ module display_driver(
     // 扫描计数器（0~3，对应4个数码管）
     reg [1:0] scan_cnt;
     
-    // 当前显示的数字
-    reg [3:0] digit;
-    
     // 频率值限制（用于显示）
     reg [15:0] freq_limited;
     
@@ -86,30 +83,28 @@ module display_driver(
             an <= 8'b00000000;
             seg0 <= 8'b00000000;
             seg1 <= 8'b00000000;
-            digit <= 4'd0;
         end else begin
             case (scan_cnt)
                 2'd0: begin
                     an <= 8'b00000001;      // 选通AN0（千位）
-                    digit <= digit_3;
+                    seg0 <= seg_decode(digit_3);  // 直接使用千位数字进行译码
                 end
                 2'd1: begin
                     an <= 8'b00000010;      // 选通AN1（百位）
-                    digit <= digit_2;
+                    seg0 <= seg_decode(digit_2);  // 直接使用百位数字进行译码
                 end
                 2'd2: begin
                     an <= 8'b00000100;      // 选通AN2（十位）
-                    digit <= digit_1;
+                    seg0 <= seg_decode(digit_1);  // 直接使用十位数字进行译码
                 end
                 2'd3: begin
                     an <= 8'b00001000;      // 选通AN3（个位）
-                    digit <= digit_0;
+                    seg0 <= seg_decode(digit_0);  // 直接使用个位数字进行译码
                 end
             endcase
             
-            // 段码输出
-            seg0 <= seg_decode(digit);
-            seg1 <= 8'b00000000;  // 左侧数码管不使用，全灭
+            // 左侧数码管不使用，全灭
+            seg1 <= 8'b00000000;
         end
     end
 
