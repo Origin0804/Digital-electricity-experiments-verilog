@@ -15,11 +15,11 @@ module clk_div(
     parameter CLK_FREQ = 100_000_000;  // 100MHz
     
     // 分频计数器
-    // 1Hz tick: 100,000,000 计数后产生单周期脉冲
+    // 1Hz tick: 计数0到99,999,999共100,000,000个周期后产生单周期脉冲
     // 1kHz: 100,000,000 / 1000 = 100,000 计数
     // 100Hz: 100,000,000 / 100 = 1,000,000 计数
     
-    localparam CNT_1HZ = CLK_FREQ - 1;        // 99,999,999 (1秒计数)
+    localparam CNT_1HZ = CLK_FREQ - 1;        // 99,999,999 (最大计数值，总共100M个周期)
     localparam CNT_1KHZ = CLK_FREQ / 2000;    // 50,000 (翻转周期)
     localparam CNT_100HZ = CLK_FREQ / 200;    // 500,000 (翻转周期)
     
