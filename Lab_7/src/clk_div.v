@@ -23,9 +23,9 @@ module clk_div(
     localparam CNT_1KHZ = CLK_FREQ / 2000;    // 50,000 (翻转周期)
     localparam CNT_100HZ = CLK_FREQ / 200;    // 500,000 (翻转周期)
     
-    reg [26:0] cnt_1Hz;      // 1Hz计数器（需要27位以容纳100,000,000）
-    reg [16:0] cnt_1kHz;     // 1kHz计数器（需要17位以容纳50,000）
-    reg [19:0] cnt_100Hz;    // 100Hz计数器（需要20位以容纳500,000）
+    reg [26:0] cnt_1Hz;      // 1Hz计数器（27位，计数范围0-99,999,999）
+    reg [16:0] cnt_1kHz;     // 1kHz计数器（17位，计数范围0-50,000）
+    reg [19:0] cnt_100Hz;    // 100Hz计数器（20位，计数范围0-500,000）
     
     // 1Hz tick生成（每秒产生一个单周期脉冲）
     always @(posedge clk or posedge rst) begin

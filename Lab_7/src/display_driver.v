@@ -39,6 +39,8 @@ module display_driver(
     // 注意：使用除法和取模运算符进行BCD转换
     // Vivado综合器会自动优化这些运算为硬件友好的实现
     // 对于小范围的常数除法（除以10），综合结果通常很高效
+    // 由于freq_limited最大值为9999，Vivado会将其优化为移位-加法逻辑而非真正的除法器
+    // 如需进一步优化资源，可考虑使用Double-Dabble（shift-and-add-3）算法
     assign digit_0 = freq_limited % 10;
     assign digit_1 = (freq_limited / 10) % 10;
     assign digit_2 = (freq_limited / 100) % 10;

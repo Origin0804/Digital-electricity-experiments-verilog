@@ -61,12 +61,16 @@ module freq_meter(
     
     // 频率值输出
     // 修正：在窗口tick到来时锁存当前计数值
+    // 时序说明：由于使用非阻塞赋值（<=），当clk_1Hz为高时，两个always块并发执行：
+    //   - 本块读取edge_count的"旧值"并锁存到freq（锁存操作）
+    //   - 上面的块将edge_count清零（清零操作）
+    // 这确保了在窗口边界处，先完成锁存再清零，不会丢失边界脉冲
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             freq <= 16'd0;
         end else begin
             if (clk_1Hz) begin
-                // 窗口tick，锁存当前计数值作为频率（在清零之前）
+                // 窗口tick，锁存当前计数值作为频率（读取edge_count旧值）
                 freq <= edge_count;
             end
         end
