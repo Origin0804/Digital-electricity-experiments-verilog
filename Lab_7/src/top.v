@@ -87,24 +87,36 @@ module top(
     );
     
     // LED状态指示
-    // LED0: 测量窗口指示（使用寄存器锁存）
+    // LED0: 测量窗口tick指示（每秒闪烁一次）
     // LED1: 信号输入指示
     // LED2~LED3: 频率范围指示
     reg led0_reg;
     
-    // 1Hz tick指示（锁存1Hz上升沿）
+    // 1Hz tick指示（每次tick翻转LED）
     always @(posedge clk or posedge rst_sync) begin
         if (rst_sync) begin
             led0_reg <= 1'b0;
         end else begin
-            if (clk_1Hz) begin
+            if (clk_1Hz) begin  // clk_1Hz现在是单周期脉冲
                 led0_reg <= ~led0_reg;  // 切换LED状态
             end
         end
     end
     
+    // 信号输入需要同步后再用于LED显示
+    reg signal_in_sync1, signal_in_sync2;
+    always @(posedge clk or posedge rst_sync) begin
+        if (rst_sync) begin
+            signal_in_sync1 <= 1'b0;
+            signal_in_sync2 <= 1'b0;
+        end else begin
+            signal_in_sync1 <= signal_in;
+            signal_in_sync2 <= signal_in_sync1;
+        end
+    end
+    
     assign led[0] = led0_reg;
-    assign led[1] = signal_in;
+    assign led[1] = signal_in_sync2;
     assign led[2] = (freq > 16'd1000);  // 频率 > 1kHz
     assign led[3] = (freq > 16'd5000);  // 频率 > 5kHz
 

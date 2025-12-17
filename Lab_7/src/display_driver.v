@@ -79,9 +79,9 @@ module display_driver(
     end
     
     // 数码管扫描显示
-    // 物理布局（从左到右）：AN0-AN1-AN2-AN3 (右侧4位)
-    // 显示内容：千位-百位-十位-个位
-    // AN0显示千位，AN1显示百位，AN2显示十位，AN3显示个位
+    // 物理布局（EGO1板上从右到左）：AN0-AN1-AN2-AN3 (右侧4位)
+    // 显示内容：个位-十位-百位-千位
+    // 修正：AN0=个位（最右），AN1=十位，AN2=百位，AN3=千位（最左）
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
             an <= 8'b00000000;
@@ -91,20 +91,20 @@ module display_driver(
         end else begin
             case (scan_cnt)
                 2'd0: begin
-                    an <= 8'b00000001;      // 选通AN0（千位）
-                    digit <= digit_3;
+                    an <= 8'b00000001;      // 选通AN0（个位）
+                    digit <= digit_0;
                 end
                 2'd1: begin
-                    an <= 8'b00000010;      // 选通AN1（百位）
-                    digit <= digit_2;
-                end
-                2'd2: begin
-                    an <= 8'b00000100;      // 选通AN2（十位）
+                    an <= 8'b00000010;      // 选通AN1（十位）
                     digit <= digit_1;
                 end
+                2'd2: begin
+                    an <= 8'b00000100;      // 选通AN2（百位）
+                    digit <= digit_2;
+                end
                 2'd3: begin
-                    an <= 8'b00001000;      // 选通AN3（个位）
-                    digit <= digit_0;
+                    an <= 8'b00001000;      // 选通AN3（千位）
+                    digit <= digit_3;
                 end
             endcase
             
