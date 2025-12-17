@@ -79,9 +79,9 @@ module display_driver(
     end
     
     // 数码管扫描显示
-    // 物理布局（从左到右）：AN0-AN1-AN2-AN3 (右侧4位)
-    // 显示内容：千位-百位-十位-个位
-    // AN0显示千位，AN1显示百位，AN2显示十位，AN3显示个位
+    // 实际物理：AN0 在最左，其次 AN1、AN2，AN3 最右
+    // 显示内容（左→右）：千-百-十-个
+    // 因此扫描应当：AN0=千位，AN1=百位，AN2=十位，AN3=个位
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
             an <= 8'b00000000;
@@ -91,7 +91,7 @@ module display_driver(
         end else begin
             case (scan_cnt)
                 2'd0: begin
-                    an <= 8'b00000001;      // 选通AN0（千位）
+                    an <= 8'b00000001;      // 选通AN0（千位，最左）
                     digit <= digit_3;
                 end
                 2'd1: begin
@@ -103,7 +103,7 @@ module display_driver(
                     digit <= digit_1;
                 end
                 2'd3: begin
-                    an <= 8'b00001000;      // 选通AN3（个位）
+                    an <= 8'b00001000;      // 选通AN3（个位，最右）
                     digit <= digit_0;
                 end
             endcase

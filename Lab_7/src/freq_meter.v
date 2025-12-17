@@ -21,10 +21,6 @@ module freq_meter(
     // 计数器
     reg [15:0] edge_count;      // 当前窗口内的上升沿计数
     
-    // 窗口控制
-    reg clk_1Hz_prev;
-    wire window_tick;           // 窗口更新tick（1Hz上升沿）
-    
     // 两级同步输入信号（防止亚稳态）
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -47,24 +43,14 @@ module freq_meter(
     
     assign signal_posedge = signal_sync2 & ~signal_prev;
     
-    // 1Hz窗口tick检测
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            clk_1Hz_prev <= 1'b0;
-        end else begin
-            clk_1Hz_prev <= clk_1Hz;
-        end
-    end
-    
-    assign window_tick = clk_1Hz & ~clk_1Hz_prev;
-    
     // 上升沿计数器
+    // 修正：先锁存再清零，避免边界丢失
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             edge_count <= 16'd0;
         end else begin
-            if (window_tick) begin
-                // 窗口结束，重置计数器
+            if (clk_1Hz) begin
+                // 窗口结束tick，重置计数器（下一个窗口开始）
                 edge_count <= 16'd0;
             end else if (signal_posedge) begin
                 // 检测到上升沿，计数加1
@@ -74,12 +60,17 @@ module freq_meter(
     end
     
     // 频率值输出
+    // 修正：在窗口tick到来时锁存当前计数值
+    // 时序说明：由于使用非阻塞赋值（<=），当clk_1Hz为高时，两个always块并发执行：
+    //   - 本块读取edge_count的"旧值"并锁存到freq（锁存操作）
+    //   - 上面的块将edge_count清零（清零操作）
+    // 这确保了在窗口边界处，先完成锁存再清零，不会丢失边界脉冲
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             freq <= 16'd0;
         end else begin
-            if (window_tick) begin
-                // 窗口结束，锁存当前计数值作为频率
+            if (clk_1Hz) begin
+                // 窗口tick，锁存当前计数值作为频率（读取edge_count旧值）
                 freq <= edge_count;
             end
         end
