@@ -39,8 +39,6 @@ module display_driver(
     // 注意：使用除法和取模运算符进行BCD转换
     // Vivado综合器会自动优化这些运算为硬件友好的实现
     // 对于小范围的常数除法（除以10），综合结果通常很高效
-    // 由于freq_limited最大值为9999，Vivado会将其优化为移位-加法逻辑而非真正的除法器
-    // 如需进一步优化资源，可考虑使用Double-Dabble（shift-and-add-3）算法
     assign digit_0 = freq_limited % 10;
     assign digit_1 = (freq_limited / 10) % 10;
     assign digit_2 = (freq_limited / 100) % 10;
@@ -81,9 +79,9 @@ module display_driver(
     end
     
     // 数码管扫描显示
-    // 物理布局（EGO1板上从右到左）：AN0-AN1-AN2-AN3 (右侧4位)
-    // 显示内容：个位-十位-百位-千位
-    // 修正：AN0=个位（最右），AN1=十位，AN2=百位，AN3=千位（最左）
+    // 实际物理：AN0 在最左，其次 AN1、AN2，AN3 最右
+    // 显示内容（左→右）：千-百-十-个
+    // 因此扫描应当：AN0=千位，AN1=百位，AN2=十位，AN3=个位
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
             an <= 8'b00000000;
@@ -93,20 +91,20 @@ module display_driver(
         end else begin
             case (scan_cnt)
                 2'd0: begin
-                    an <= 8'b00000001;      // 选通AN0（个位）
-                    digit <= digit_0;
+                    an <= 8'b00000001;      // 选通AN0（千位，最左）
+                    digit <= digit_3;
                 end
                 2'd1: begin
-                    an <= 8'b00000010;      // 选通AN1（十位）
-                    digit <= digit_1;
-                end
-                2'd2: begin
-                    an <= 8'b00000100;      // 选通AN2（百位）
+                    an <= 8'b00000010;      // 选通AN1（百位）
                     digit <= digit_2;
                 end
+                2'd2: begin
+                    an <= 8'b00000100;      // 选通AN2（十位）
+                    digit <= digit_1;
+                end
                 2'd3: begin
-                    an <= 8'b00001000;      // 选通AN3（千位）
-                    digit <= digit_3;
+                    an <= 8'b00001000;      // 选通AN3（个位，最右）
+                    digit <= digit_0;
                 end
             endcase
             
