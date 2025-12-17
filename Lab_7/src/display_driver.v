@@ -39,6 +39,8 @@ module display_driver(
     // 注意：使用除法和取模运算符进行BCD转换
     // Vivado综合器会自动优化这些运算为硬件友好的实现
     // 对于小范围的常数除法（除以10），综合结果通常很高效
+    // 由于freq_limited最大值为9999，Vivado会将其优化为移位-加法逻辑而非真正的除法器
+    // 如需进一步优化资源，可考虑使用Double-Dabble（shift-and-add-3）算法
     assign digit_0 = freq_limited % 10;
     assign digit_1 = (freq_limited / 10) % 10;
     assign digit_2 = (freq_limited / 100) % 10;
@@ -78,10 +80,7 @@ module display_driver(
             scan_cnt <= scan_cnt + 1'b1;
     end
     
-    // 数码管扫描显示
-    // 物理布局（从左到右）：AN0-AN1-AN2-AN3 (右侧4位)
-    // 显示内容：千位-百位-十位-个位
-    // AN0显示千位，AN1显示百位，AN2显示十位，AN3显示个位
+
     always @(posedge clk_scan or posedge rst) begin
         if (rst) begin
             an <= 8'b00000000;

@@ -5,7 +5,7 @@
 module top(
     // 系统时钟与复位
     input clk,                  // 100MHz 系统时钟 (P17)
-    input rst,                  // 复位按键 S6 (P15)，高有效
+    input rst,                  // 复位按键 S6 (P15)，板上默认为低有效（松开=1，按下=0），内部翻转为高有效
     
     // NE555信号输入（频率测量）
     input signal_in,            // NE555输出信号，经J5扩展口输入
@@ -36,13 +36,17 @@ module top(
     // 频率测量值
     wire [15:0] freq;           // 测得的频率值（Hz）
     
-    // 复位信号同步
+    // 复位信号同步（外部低有效，内部翻转为高有效）
     reg rst_sync1, rst_sync2;
+    wire rst_active;   // 高有效复位
     wire rst_sync;
     
+    // 外部 rst 为低有效，翻转后再同步
+    assign rst_active = ~rst;
+
     // 复位信号两级同步
     always @(posedge clk) begin
-        rst_sync1 <= rst;
+        rst_sync1 <= rst_active;
         rst_sync2 <= rst_sync1;
     end
     assign rst_sync = rst_sync2;
