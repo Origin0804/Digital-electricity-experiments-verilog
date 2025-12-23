@@ -50,23 +50,24 @@ set_property IOSTANDARD LVCMOS33 [get_ports {sw[*]}]
 # ========================================
 # DAC0832控制信号
 # ========================================
-# DAC数据输出 DI7~DI0（使用DIP开关引脚或其他可用引脚）
-# 这里使用DIP开关引脚作为DAC数据输出示例
-# 实际使用时需要根据硬件连接确定
-set_property PACKAGE_PIN T5 [get_ports {dac_data[0]}]
-set_property PACKAGE_PIN T3 [get_ports {dac_data[1]}]
-set_property PACKAGE_PIN R3 [get_ports {dac_data[2]}]
-set_property PACKAGE_PIN V4 [get_ports {dac_data[3]}]
-set_property PACKAGE_PIN V5 [get_ports {dac_data[4]}]
-set_property PACKAGE_PIN V2 [get_ports {dac_data[5]}]
-set_property PACKAGE_PIN U2 [get_ports {dac_data[6]}]
-set_property PACKAGE_PIN U3 [get_ports {dac_data[7]}]
+# DAC数据输出 DI7~DI0（专用DAC0832接口）
+# 引脚对应UserManual DAC0832表：DI0=T8, DI1=R8, DI2=T6, DI3=R7,
+# DI4=U6, DI5=U7, DI6=V9, DI7=U9
+set_property PACKAGE_PIN T8 [get_ports {dac_data[0]}]
+set_property PACKAGE_PIN R8 [get_ports {dac_data[1]}]
+set_property PACKAGE_PIN T6 [get_ports {dac_data[2]}]
+set_property PACKAGE_PIN R7 [get_ports {dac_data[3]}]
+set_property PACKAGE_PIN U6 [get_ports {dac_data[4]}]
+set_property PACKAGE_PIN U7 [get_ports {dac_data[5]}]
+set_property PACKAGE_PIN V9 [get_ports {dac_data[6]}]
+set_property PACKAGE_PIN U9 [get_ports {dac_data[7]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {dac_data[*]}]
 
-# DAC控制信号（使用可用引脚）
-set_property PACKAGE_PIN M3 [get_ports dac_wr1]
-set_property PACKAGE_PIN L6 [get_ports dac_wr2]
-set_property PACKAGE_PIN N1 [get_ports dac_cs]
+# DAC控制信号（专用DAC0832接口，低有效）
+# WR1#=V6, WR2#=R6, CS#=N6
+set_property PACKAGE_PIN V6 [get_ports dac_wr1]
+set_property PACKAGE_PIN R6 [get_ports dac_wr2]
+set_property PACKAGE_PIN N6 [get_ports dac_cs]
 set_property IOSTANDARD LVCMOS33 [get_ports dac_wr1]
 set_property IOSTANDARD LVCMOS33 [get_ports dac_wr2]
 set_property IOSTANDARD LVCMOS33 [get_ports dac_cs]
